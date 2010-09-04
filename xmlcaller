@@ -3,4 +3,14 @@
 use warnings;
 use strict;
 
+use YAML;
+
+use Frontier::Client;
+
+my $server = new Frontier::Client(
+  url => 'https://localhost:1638/',
+);
+
+print Dump $server->call('sample.sumAndDifference', 5, 3);
+
 # vim:ft=perl
