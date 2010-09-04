@@ -3,9 +3,20 @@
 use warnings;
 use strict;
 
+# XXX: IO::Socket::SSL must be loaded before LWP::UserAgent, so the latter
+# uses that instead of Net::SSL. Load them at the very beginning, just to make
+# sure none of the other modules messes with this.
+use IO::Socket::SSL;
+use LWP::UserAgent;
+
 use YAML;
 
 use Frontier::Client;
+
+IO::Socket::SSL::set_ctx_defaults(
+  verify_mode => Net::SSLeay->VERIFY_PEER(),
+  ca_file => "x509/actual.cert.pem",
+);
 
 my $server = new Frontier::Client(
   url => 'https://localhost:1638/',
