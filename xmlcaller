@@ -13,19 +13,38 @@ use YAML;
 
 use Frontier::Client;
 
-my $host = 'localhost';
+#-----------------------------------------------------------------------------
+
+my $host = 'hans.jarowit.net';
 my $port = 1638;
 
-my $url = sprintf 'https://%s:%d/', $host, $port;
+my $cred_user = 'nabla';
+my $cred_pass = 'passlo';
+
+my $CA_file = "x509/actual.cert.pem";
+
+#-----------------------------------------------------------------------------
+
+my $url = "https://$host:$port/";
+my $cred_location = "$host:$port";
+my $cred_realm = "";
 
 IO::Socket::SSL::set_ctx_defaults(
   verify_mode => Net::SSLeay->VERIFY_PEER(),
-  ca_file => "x509/actual.cert.pem",
+  ca_file => $CA_file,
   verifycn_scheme => 'http',
 );
 
+#-----------------------------------------------------------------------------
+
 my $server = new Frontier::Client(
   url => $url,
+);
+
+# XXX: this is kinda hack on Frontier::Client, but there's no way to pass
+$server->{ua}->credentials(
+  $cred_location, $cred_realm,
+  $cred_user, $cred_pass
 );
 
 print Dump $server->call('sample.sumAndDifference', 5, 3);

@@ -3,9 +3,10 @@
 use warnings;
 use strict;
 
-use HTTP::Daemon::SSL;
 use IO::Socket::SSL;
+use HTTP::Daemon::SSL;
 use HTTP::Status;
+use MIME::Base64;
 
 use Frontier::RPC2;
 
@@ -31,11 +32,23 @@ my $rpc_hash = {
   },
 };
 
+CLIENT:
 while (1) {
-  my $c = $daemon->accept or next;
+  my $c = $daemon->accept or next CLIENT;
+  REQUEST:
   while (my $req = $c->get_request) {
     if ($req->method ne 'POST') {
       $c->send_error(RC_FORBIDDEN);
+    }
+
+    # XXX: authenticate
+    my $auth_user = authenticate($req);
+    if (not defined $auth_user) {
+      my $resp = new HTTP::Response(401, 'Unauthorized');
+      $resp->header('WWW-Authenticate' => 'Basic realm=""');
+
+      $c->send_response($resp);
+      next REQUEST;
     }
 
     my $xml_resp = $rpc_server->serve(
@@ -47,6 +60,26 @@ while (1) {
 
     $c->send_response($resp);
   }
+}
+
+#-----------------------------------------------------------------------------
+
+sub authenticate {
+  my ($req) = @_;
+
+  my $auth_data = $req->header('Authorization');
+  if (not defined $auth_data or
+      $auth_data !~ s/^Basic (\S+).*/$1/i) {
+    return undef;
+  }
+
+  # Authorization: Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==
+  # username:password
+  my ($user, $pass) = split /:/, decode_base64($auth_data), 2;
+
+  print "user: $user | pass: $pass\n";
+
+  return $user;
 }
 
 #-----------------------------------------------------------------------------
