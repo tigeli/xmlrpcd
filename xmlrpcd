@@ -3,4 +3,18 @@
 use warnings;
 use strict;
 
+use HTTP::Daemon::SSL;
+use IO::Socket::SSL;
+
+#-----------------------------------------------------------------------------
+
+my $cert = 'x509/actual.cert.pem';
+my $key  = 'x509/actual.key.pem';
+
+my $daemon = new HTTP::Daemon::SSL(
+  SSL_cert_file => $cert,
+  SSL_key_file  => $key,
+);
+
+#-----------------------------------------------------------------------------
 # vim:ft=perl
