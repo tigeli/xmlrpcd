@@ -7,6 +7,8 @@ use HTTP::Daemon::SSL;
 use IO::Socket::SSL;
 use HTTP::Status;
 
+use Frontier::RPC2;
+
 #-----------------------------------------------------------------------------
 
 my $cert = 'x509/actual.cert.pem';
@@ -18,7 +20,16 @@ my $daemon = new HTTP::Daemon::SSL(
   LocalPort => 1638,
   LocalAddr => 'localhost',
   Listen => 1,
-);
+  ReuseAddr => 1,
+) or die "$!";
+
+my $rpc_server = new Frontier::RPC2();
+my $rpc_hash = {
+  'sample.sumAndDifference' => sub {
+    my ($a, $b) = @_;
+    return [$a + $b, $a - $b];
+  },
+};
 
 while (1) {
   my $c = $daemon->accept or next;
@@ -27,8 +38,14 @@ while (1) {
       $c->send_error(RC_FORBIDDEN);
     }
 
-    use YAML;
-    print Dump $req;
+    my $xml_resp = $rpc_server->serve(
+      $req->content,
+      $rpc_hash,
+    );
+
+    my $resp = new HTTP::Response(200, 'OK', undef, $xml_resp);
+
+    $c->send_response($resp);
   }
 }
 
