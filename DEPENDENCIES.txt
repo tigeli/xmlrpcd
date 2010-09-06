@@ -2,3 +2,7 @@ IO::Socket::SSL
 Frontier::RPC
 HTTP::Daemon::SSL
 LWP
+
+App::Daemon (Debian testing)
+Log::Log4perl
+Log::Dispatch

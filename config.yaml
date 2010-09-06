@@ -1,0 +1,4 @@
+ssl_cert_file: x509/actual.cert.pem
+ssl_key_file:  x509/actual.key.pem
+listen_port: 1638
+#listen_addr:

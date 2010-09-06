@@ -10,21 +10,27 @@ use MIME::Base64;
 
 use Frontier::RPC2;
 
+use YAML qw/LoadFile/;
+
+use App::Daemon qw/daemonize/;
+use Log::Log4perl;
+
 #-----------------------------------------------------------------------------
+# load configuration
 
-my $cert = 'x509/actual.cert.pem';
-my $key  = 'x509/actual.key.pem';
+$App::Daemon::pidfile = 'run/xmlrpcd.pid';
+$App::Daemon::l4p_conf = 'logging.conf';
 
-my $daemon = new HTTP::Daemon::SSL(
-  SSL_cert_file => $cert,
-  SSL_key_file  => $key,
-  LocalPort => 1638,
-  #LocalAddr => 'localhost',
-  Listen => 1,
-  ReuseAddr => 1,
-) or die "$!";
+my $options = {};
 
-my $rpc_server = new Frontier::RPC2();
+my $opts_file = App::Daemon::find_option("--config" => 1);
+if (defined $opts_file) {
+  $options = LoadFile($opts_file);
+}
+
+#-----------------------------------------------------------------------------
+# prepare RPC mapping
+
 my $rpc_hash = {
   'sample.sumAndDifference' => sub {
     my ($a, $b) = @_;
@@ -32,24 +38,49 @@ my $rpc_hash = {
   },
 };
 
+#-----------------------------------------------------------------------------
+
+daemonize();
+
+my $logger = Log::Log4perl::get_logger("http");
+
+my $daemon = new HTTP::Daemon::SSL(
+  SSL_cert_file => $options->{"ssl_cert_file"},
+  SSL_key_file  => $options->{"ssl_key_file"},
+  LocalPort => $options->{"listen_port"},
+  LocalAddr => $options->{"listen_addr"},
+  Listen => 1,
+  ReuseAddr => 1,
+) or $logger->logdie("Socket listening error: ", $!);
+
+my $rpc_server = new Frontier::RPC2();
+
 CLIENT:
 while (1) {
-  my $c = $daemon->accept or next CLIENT;
+  my $client = $daemon->accept or next CLIENT;
+
   REQUEST:
-  while (my $req = $c->get_request) {
+  while (my $req = $client->get_request) {
+    $logger->debug("Another request");
+
     if ($req->method ne 'POST') {
-      $c->send_error(RC_FORBIDDEN);
+      $logger->info("HTTP request ", $req->method, ": denying");
+      $client->send_error(RC_FORBIDDEN);
+      next REQUEST;
     }
 
     # XXX: authenticate
     my $auth_user = authenticate($req);
     if (not defined $auth_user) {
+      $logger->debug("Unauthorized request");
       my $resp = new HTTP::Response(401, 'Unauthorized');
       $resp->header('WWW-Authenticate' => 'Basic realm=""');
 
-      $c->send_response($resp);
+      $client->send_response($resp);
       next REQUEST;
     }
+
+    $logger->debug("Request authorized (user ", $auth_user, ")");
 
     my $xml_resp = $rpc_server->serve(
       $req->content,
@@ -58,7 +89,7 @@ while (1) {
 
     my $resp = new HTTP::Response(200, 'OK', undef, $xml_resp);
 
-    $c->send_response($resp);
+    $client->send_response($resp);
   }
 }
 
@@ -73,11 +104,13 @@ sub authenticate {
     return undef;
   }
 
+  my $logger = Log::Log4perl::get_logger("auth");
+
   # Authorization: Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==
   # username:password
   my ($user, $pass) = split /:/, decode_base64($auth_data), 2;
 
-  print "user: $user | pass: $pass\n";
+  $logger->debug("user: $user | pass: $pass");
 
   return $user;
 }
