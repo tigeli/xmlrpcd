@@ -61,15 +61,24 @@ my $logger = Log::Log4perl::get_logger("initialization");
 #-----------------------------------------------------------------------------
 # prepare RPC mapping
 
-my $rpc_hash = {};
+my $rpc_hash = {
+  auth => {},
+  public => {},
+};
 
-for my $glob (@{ $options->{"methods"} }) {
-  for my $file (glob $glob) {
-    $logger->debug("Loading $file");
+for my $cat (qw/auth public/) {
+  next if not exists $options->{"methods"}{$cat};
+  for my $glob (@{ $options->{"methods"}{$cat} }) {
+    for my $file (glob $glob) {
+      $logger->debug("Loading $file");
 
-    my $load = load_method($file);
-    $rpc_hash->{"$load->{schema}.$load->{method}"} = $load->{"proc"};
+      my $load = load_method($file);
+      $rpc_hash->{$cat}{"$load->{schema}.$load->{method}"} = $load->{"proc"};
+    }
   }
+}
+for my $key (keys %{ $rpc_hash->{public} }) {
+  $rpc_hash->{auth}{$key} = $rpc_hash->{public}{$key};
 }
 
 #-----------------------------------------------------------------------------
@@ -125,22 +134,32 @@ sub process_client {
       next REQUEST;
     }
 
-    # XXX: authenticate
-    my $auth_user = authenticate($req, $auth);
-    if (not defined $auth_user) {
-      $logger->debug("Unauthorized request");
-      my $resp = new HTTP::Response(401, 'Unauthorized');
-      $resp->header('WWW-Authenticate' => 'Basic realm=""');
+    my $req_decoded = $rpc_server->decode($req->content);
 
-      $client->send_response($resp);
-      next REQUEST;
+    if (not exists $rpc_hash->{public}{$req_decoded->{method_name}}) {
+      # XXX: authenticate if method was not marked as public
+
+      $logger->debug("Request for ", $req_decoded->{method_name},
+                     " requires authentication");
+
+      my $auth_user = authenticate($req, $auth);
+      if (not defined $auth_user) {
+        $logger->debug("Unauthorized request");
+        my $resp = new HTTP::Response(401, 'Unauthorized');
+        $resp->header('WWW-Authenticate' => 'Basic realm=""');
+
+        $client->send_response($resp);
+        next REQUEST;
+      }
+
+      $logger->debug("Request authorized (user ", $auth_user, ")");
     }
 
-    $logger->debug("Request authorized (user ", $auth_user, ")");
-
+    # XXX: "auth" category is a superset of "public", and for the difference
+    # client was already authenticated
     my $xml_resp = $rpc_server->serve(
       $req->content,
-      $rpc_hash,
+      $rpc_hash->{auth},
     );
 
     my $resp = new HTTP::Response(200, 'OK', undef, $xml_resp);

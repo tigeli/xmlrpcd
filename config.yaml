@@ -9,7 +9,10 @@ auth_params:
   path: passwords.htp
 
 methods:
-  - "procedures/*/*.pm"
+  auth:
+    - "procedures/authenticated_example/*.pm"
+  public:
+    - "procedures/public_example/*.pm"
 
 xmlrpcaller:
   # example:
