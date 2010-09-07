@@ -13,6 +13,8 @@ use YAML qw/LoadFile/;
 use Getopt::Long::Descriptive;
 use List::Util qw/first/;
 
+use POSIX;
+
 use Frontier::Client;
 
 #-----------------------------------------------------------------------------
@@ -40,6 +42,7 @@ my @options = (
   [ "config=s"     => "path to configuration file" ],
   [ "section=s"    => "which host description from config to use" ],
   [ "host=s"       => "RPC server address" ],
+  [ "username=s"   => "username for HTTP authentication (you'll be prompted for password)" ],
   [ "port=i"       => "RPC server port (default: $defaults{port})" ],
   [ "ca-file=s"    => "path to CA file" ],
   [ "skip-ca!"     => "whether verify SSL certificate or not (default: no-skip)" ],
@@ -53,7 +56,7 @@ my ($cmdlineopts, $usage) = describe_options(
 if ($cmdlineopts->{help}) {
   print $usage;
   print "\n";
-  print "NOTE: there's no way to specify username in command line. Use config.\n";
+  print "NOTE: there's no way to specify password in command line. Use config.\n";
   exit;
 }
 
@@ -86,6 +89,19 @@ $actual{port} = $cmdlineopts->{port} if defined $cmdlineopts->{port};
 $actual{ca_file} = $cmdlineopts->{ca_file} if defined $cmdlineopts->{ca_file};
 $actual{ca_ignore} = $cmdlineopts->{skip_ca} if defined $cmdlineopts->{skip_ca};
 $actual{verify_hostname} = $cmdlineopts->{verify} if defined $cmdlineopts->{verify};
+
+if (defined $cmdlineopts->{username} ||
+    (defined $actual{username} && !defined $actual{password})) {
+  my $user = $cmdlineopts->{username} // $actual{username};
+  my $pass = ask_pass("Enter password for $user\@$actual{hostname}: ");
+
+  if (not defined $pass or $pass eq '') {
+    die "No password provided.\n";
+  }
+
+  $actual{username} = $user;
+  $actual{password} = $pass;
+}
 
 #-----------------------------------------------------------------------------
 # verify if all necessary params were provided
@@ -148,4 +164,29 @@ if (defined $actual{username} && defined $actual{password}) {
 
 print YAML::Dump $server->call(@ARGV);
 
+#-----------------------------------------------------------------------------
+
+sub ask_pass {
+  my ($prompt) = @_;
+  $prompt //= "Enter password: ";
+
+  my $term = new POSIX::Termios;
+  $term->getattr(fileno STDIN);
+  my $attrs = $term->getlflag;
+
+  $term->setlflag($attrs & ~&POSIX::ECHO);
+  $term->setattr(fileno STDIN, &POSIX::TCSANOW);
+
+  printf STDERR "%s", $prompt;
+  my $pass = <STDIN>;
+  chomp $pass;
+  printf STDERR "\n";
+
+  $term->setlflag($attrs);
+  $term->setattr(fileno STDIN, &POSIX::TCSANOW);
+
+  return $pass;
+}
+
+#-----------------------------------------------------------------------------
 # vim:ft=perl

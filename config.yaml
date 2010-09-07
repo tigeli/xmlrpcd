@@ -12,24 +12,30 @@ methods:
   - "procedures/*/*.pm"
 
 caller:
+  # example:
+  #   hostname: <mandatory>
+  #   port: 3306
+  #   username: <required-for-http-authentication>
+  #   password: <will-be-asked-if-omited>
+  #   ca_file: <required-if-ca_ignore-false>
+  #   ca_ignore: false
+  #   verify_hostname: true
   rudolf:
     hostname: 192.168.2.100
     port: 16333
     username: nabla
     password: qwerty
     ca_ignore: true
-    #verify_hostname: true
   hans:
     hostname: hans.jarowit.net
-    #port: 3033
+    port: 1638
     username: nabla
-    password: nabla
+    #password: nabla
     ca_file: x509/actual.cert.pem
-    #verify_hostname: true
   local:
     hostname: localhost
-    #port: 3033
+    port: 1638
     username: nabla
-    password: nabla
+    #password: nabla
     ca_file: x509/actual.cert.pem
     verify_hostname: false
