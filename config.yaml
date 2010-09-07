@@ -11,7 +11,7 @@ auth_params:
 methods:
   - "procedures/*/*.pm"
 
-caller:
+xmlrpcaller:
   # example:
   #   hostname: <mandatory>
   #   port: 3306
