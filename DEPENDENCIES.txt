@@ -8,3 +8,5 @@ Log::Log4perl
 Log::Dispatch
 
 Authen::Simple
+
+Getopt::Long::Descriptive

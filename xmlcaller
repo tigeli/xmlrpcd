@@ -9,30 +9,127 @@ use strict;
 use IO::Socket::SSL;
 use LWP::UserAgent;
 
-use YAML;
+use YAML qw/LoadFile/;
+use Getopt::Long::Descriptive;
+use List::Util qw/first/;
 
 use Frontier::Client;
 
 #-----------------------------------------------------------------------------
+# fill some defaults
 
-my $host = 'hans.jarowit.net';
-my $port = 1638;
+my %defaults = (
+  hostname  => undef,
+  port      => 3033,
+  username  => undef,
+  password  => undef,
+  ca_file   => undef,
+  ca_ignore => 'false',
+  verify_hostname => 'true',
+);
+my %actual = %defaults;
 
-my $cred_user = 'nabla';
-my $cred_pass = 'passlo';
+my $config = first { -f && -r _ } "$ENV{HOME}/.xmlrpcaller.conf",
+                                  '/etc/xmlrpcaller.conf';
 
-my $CA_file = "x509/actual.cert.pem";
+#-----------------------------------------------------------------------------
+# parse command line options
+
+my @options = (
+  [ "help"         => "this message" ],
+  [ "config=s"     => "path to configuration file" ],
+  [ "section=s"    => "which host description from config to use" ],
+  [ "host=s"       => "RPC server address" ],
+  [ "port=i"       => "RPC server port (default: $defaults{port})" ],
+  [ "ca-file=s"    => "path to CA file" ],
+  [ "skip-ca!"     => "whether verify SSL certificate or not (default: no-skip)" ],
+  [ "verify!"      => "whether verify hostname with cert or not (default: verify)" ],
+);
+my ($cmdlineopts, $usage) = describe_options(
+  "Usage: %c %o package.method arg1 arg2 ...",
+  @options,
+);
+
+if ($cmdlineopts->{help}) {
+  print $usage;
+  print "\n";
+  print "NOTE: there's no way to specify username in command line. Use config.\n";
+  exit;
+}
+
+#-----------------------------------------------------------------------------
+# read configuration file
+
+if (defined $cmdlineopts->{config}) {
+  $config = $cmdlineopts->{config};
+}
+
+if (defined $cmdlineopts->{section}) {
+  if (not defined $config) {
+    die "No default config file could be read and none specified in command line\n";
+  }
+  my $options = LoadFile($config);
+  $options = $options->{'caller'};
+
+  my $section = $options->{ $cmdlineopts->{section} };
+
+  for my $key (keys %$section) {
+    $actual{$key} = $section->{$key};
+  }
+}
+
+#-----------------------------------------------------------------------------
+# use parameters provided in command line
+
+$actual{hostname} = $cmdlineopts->{host} if defined $cmdlineopts->{host};
+$actual{port} = $cmdlineopts->{port} if defined $cmdlineopts->{port};
+$actual{ca_file} = $cmdlineopts->{ca_file} if defined $cmdlineopts->{ca_file};
+$actual{ca_ignore} = $cmdlineopts->{skip_ca} if defined $cmdlineopts->{skip_ca};
+$actual{verify_hostname} = $cmdlineopts->{verify} if defined $cmdlineopts->{verify};
+
+#-----------------------------------------------------------------------------
+# verify if all necessary params were provided
+
+for my $bool_opt (qw/ca_ignore verify_hostname/) {
+  if ($actual{$bool_opt} =~ /^false$/i or not $actual{$bool_opt}) {
+    $actual{$bool_opt} = undef;
+  } else {
+    $actual{$bool_opt} = 'true';
+  }
+}
+
+if (not defined $actual{hostname}) {
+  die "No hostname provided\n";
+}
+if (not defined $actual{port}) {
+  die "No port specified\n";
+}
+if (!$actual{ca_ignore} && !defined $actual{ca_file} ) {
+  die "No CA specified\n";
+}
 
 #-----------------------------------------------------------------------------
 
-my $url = "https://$host:$port/";
-my $cred_location = "$host:$port";
+my $url = sprintf "https://%s:%d/", $actual{hostname}, $actual{port};
+my $cred_location = sprintf "%s:%d", $actual{hostname}, $actual{port};
 my $cred_realm = "";
 
 IO::Socket::SSL::set_ctx_defaults(
-  verify_mode => Net::SSLeay->VERIFY_PEER(),
-  ca_file => $CA_file,
-  verifycn_scheme => 'http',
+  verify_mode => (
+    $actual{ca_ignore} ?
+      Net::SSLeay->VERIFY_NONE() :
+      Net::SSLeay->VERIFY_PEER()
+  ),
+  ca_file => (
+    $actual{ca_ignore} ?
+    undef :
+    $actual{ca_file}
+  ),
+  verifycn_scheme => (
+    $actual{verify_hostname} ?
+    'http' :
+    undef
+  ),
 );
 
 #-----------------------------------------------------------------------------
@@ -42,11 +139,13 @@ my $server = new Frontier::Client(
 );
 
 # XXX: this is kinda hack on Frontier::Client, but there's no way to pass
-$server->{ua}->credentials(
-  $cred_location, $cred_realm,
-  $cred_user, $cred_pass
-);
+if (defined $actual{username} && defined $actual{password}) {
+  $server->{ua}->credentials(
+    $cred_location, $cred_realm,
+    $actual{username}, $actual{password}
+  );
+}
 
-print Dump $server->call('sample.sumAndDifference', 5, 3);
+print YAML::Dump $server->call(@ARGV);
 
 # vim:ft=perl
