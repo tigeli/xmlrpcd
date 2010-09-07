@@ -6,3 +6,5 @@ LWP
 App::Daemon (Debian testing)
 Log::Log4perl
 Log::Dispatch
+
+Authen::Simple

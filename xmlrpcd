@@ -14,6 +14,7 @@ use YAML qw/LoadFile/;
 
 use App::Daemon qw/daemonize/;
 use Log::Log4perl;
+use Authen::Simple;
 
 #-----------------------------------------------------------------------------
 # load configuration
@@ -41,6 +42,10 @@ my $rpc_hash = {
 #-----------------------------------------------------------------------------
 
 daemonize();
+
+my $auth = new Authen::Simple(
+  auth_module_init($options->{'auth_method'}, $options->{'auth_params'})
+);
 
 my $logger = Log::Log4perl::get_logger("http");
 
@@ -110,9 +115,33 @@ sub authenticate {
   # username:password
   my ($user, $pass) = split /:/, decode_base64($auth_data), 2;
 
-  $logger->debug("user: $user | pass: $pass");
+  $logger->debug("Requested user: ", $user);
+  if ($auth->authenticate($user, $pass)) {
+    $logger->debug("Authentication success");
+    return $user;
+  }
 
-  return $user;
+  return undef;
+}
+
+#-----------------------------------------------------------------------------
+
+sub auth_module_init {
+  my ($module, $options) = @_;
+
+  die "Undefined authentication module name" if not defined $module;
+  if ($module !~ /^[a-zA-Z_0-9:]+$/) {
+    die "Invalid authentication module name: $module";
+  }
+
+  my $instance;
+  eval "
+    require $module;
+    \$instance = ${module}->new(%\$options);
+  ";
+  die $@ if $@;
+
+  return $instance;
 }
 
 #-----------------------------------------------------------------------------
