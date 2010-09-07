@@ -30,6 +30,29 @@ if (defined $opts_file) {
 }
 
 #-----------------------------------------------------------------------------
+# change UID/GID, if applicable
+
+my $uid = App::Daemon::find_option("--user" => 1);
+my $gid = App::Daemon::find_option("--group" => 1);
+
+if (defined $gid) {
+  $gid = getgrnam $gid unless $gid =~ /^\d+$/;
+}
+if (defined $uid) {
+  $uid = getpwnam $uid unless $uid =~ /^\d+$/;
+  if (not defined $gid) {
+    $gid = (getpwuid $uid)[3];
+  }
+}
+
+if (defined $gid) {
+  $( = $) = "$gid $gid";
+}
+if (defined $uid) {
+  $< = $> = $uid;
+}
+
+#-----------------------------------------------------------------------------
 
 daemonize();
 
