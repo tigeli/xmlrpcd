@@ -71,11 +71,16 @@ my $daemon = new HTTP::Daemon::SSL(
 
 my $rpc_server = new Frontier::RPC2();
 
+my $workers = new Proc::Queue();
+
 CLIENT:
 while (1) {
   my $client = $daemon->accept or next CLIENT;
 
-  process_client($client, $auth, $rpc_server, $rpc_hash);
+  if ($workers->spawn == 0) {
+    process_client($client, $auth, $rpc_server, $rpc_hash);
+    exit 0;
+  }
 }
 
 #-----------------------------------------------------------------------------
@@ -194,6 +199,66 @@ sub load_method {
     method => $method,
     proc   => $sub,
   };
+}
+
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+
+package Proc::Queue;
+
+use POSIX qw/:sys_wait_h/;
+
+sub new {
+  my ($class, %args) = @_;
+
+  my $self = {
+    queue => [],
+    max_len => int($args{max_len} // 0),
+  };
+
+  return bless $self, $class;
+}
+
+sub reap {
+  my ($self) = @_;
+
+  CHILD:
+  while ((my $kid = waitpid(-1, WNOHANG)) > 0) {
+    for (my $i = 0; $i < @{ $self->{queue} }; ++$i) {
+      if ($self->{queue}[$i] == $kid) {
+        splice @{ $self->{queue} }, $i, 1;
+        next CHILD;
+      }
+    }
+  }
+}
+
+sub spawn {
+  my ($self) = @_;
+
+  if ($self->{max_len} > 0) {
+    while ($self->length >= $self->{max_len}) {
+      sleep 1;
+    }
+  }
+
+  my $pid = fork;
+  if (not defined $pid) {
+    die "Can't fork(): $!";
+  }
+
+  if ($pid > 0) {
+    push @{ $self->{queue} }, $pid;
+  }
+
+  return $pid;
+}
+
+sub length {
+  my ($self) = @_;
+
+  return scalar @{ $self->{queue} };
 }
 
 #-----------------------------------------------------------------------------
