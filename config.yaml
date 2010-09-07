@@ -7,3 +7,6 @@ listen_port: 1638
 auth_method: Authen::Simple::Passwd
 auth_params:
   path: passwords.htp
+
+methods:
+  - "procedures/*/*.pm"

@@ -30,24 +30,35 @@ if (defined $opts_file) {
 }
 
 #-----------------------------------------------------------------------------
-# prepare RPC mapping
-
-my $rpc_hash = {
-  'sample.sumAndDifference' => sub {
-    my ($a, $b) = @_;
-    return [$a + $b, $a - $b];
-  },
-};
-
-#-----------------------------------------------------------------------------
 
 daemonize();
+
+my $logger = Log::Log4perl::get_logger("initialization");
+
+#-----------------------------------------------------------------------------
+# prepare RPC mapping
+
+my $rpc_hash = {};
+
+for my $glob (@{ $options->{"methods"} }) {
+  for my $file (glob $glob) {
+    $logger->debug("Loading $file");
+
+    my $load = load_method($file);
+    $rpc_hash->{"$load->{schema}.$load->{method}"} = $load->{"proc"};
+  }
+}
+
+#-----------------------------------------------------------------------------
+# prepare authentication subsystem
 
 my $auth = new Authen::Simple(
   auth_module_init($options->{'auth_method'}, $options->{'auth_params'})
 );
 
-my $logger = Log::Log4perl::get_logger("http");
+#-----------------------------------------------------------------------------
+
+$logger = Log::Log4perl::get_logger("http");
 
 my $daemon = new HTTP::Daemon::SSL(
   SSL_cert_file => $options->{"ssl_cert_file"},
@@ -142,6 +153,35 @@ sub auth_module_init {
   die $@ if $@;
 
   return $instance;
+}
+
+#-----------------------------------------------------------------------------
+
+sub load_method {
+  my ($path) = @_;
+
+  my $package = $path;
+  $package =~ s/\.pm$//;
+
+  ($package, my $method) = (split m[/+], $package)[-2, -1];
+
+  if ("${package}::${method}" !~ /^[a-zA-Z0-9_]+::[a-zA-Z0-9_]+$/) {
+    die "Path $path translates into incorrect package name: ${package}::${method}";
+  }
+
+  my $sub;
+  eval "
+    package rpcmethod::$package;
+    require \$path;
+    \$sub = \\&entry_point;
+  ";
+  die $@ if $@;
+
+  return {
+    schema => $package,
+    method => $method,
+    proc   => $sub,
+  };
 }
 
 #-----------------------------------------------------------------------------
