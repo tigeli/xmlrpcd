@@ -75,6 +75,18 @@ CLIENT:
 while (1) {
   my $client = $daemon->accept or next CLIENT;
 
+  process_client($client, $auth, $rpc_server, $rpc_hash);
+}
+
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+
+sub process_client {
+  my ($client, $auth, $rpc_server, $rpc_hash) = @_;
+
+  my $logger = Log::Log4perl::get_logger("client");
+
   REQUEST:
   while (my $req = $client->get_request) {
     $logger->debug("Another request");
@@ -86,7 +98,7 @@ while (1) {
     }
 
     # XXX: authenticate
-    my $auth_user = authenticate($req);
+    my $auth_user = authenticate($req, $auth);
     if (not defined $auth_user) {
       $logger->debug("Unauthorized request");
       my $resp = new HTTP::Response(401, 'Unauthorized');
@@ -112,7 +124,7 @@ while (1) {
 #-----------------------------------------------------------------------------
 
 sub authenticate {
-  my ($req) = @_;
+  my ($req, $auth) = @_;
 
   my $auth_data = $req->header('Authorization');
   if (not defined $auth_data or
