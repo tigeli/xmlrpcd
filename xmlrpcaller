@@ -32,7 +32,7 @@ my %defaults = (
 my %actual = %defaults;
 
 my $config = first { -f && -r _ } "$ENV{HOME}/.xmlrpcaller.conf",
-                                  '/etc/xmlrpcaller.conf';
+                                  '/etc/xmlrpcd/xmlrpcaller.conf';
 
 #-----------------------------------------------------------------------------
 # parse command line options

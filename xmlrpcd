@@ -19,14 +19,14 @@ use Authen::Simple;
 #-----------------------------------------------------------------------------
 # load configuration
 
-$App::Daemon::pidfile = 'run/xmlrpcd.pid';
-$App::Daemon::l4p_conf = 'logging.conf';
-
-my $options = {};
+$App::Daemon::pidfile = '/var/run/xmlrpcd/xmlrpcd.pid';
+$App::Daemon::l4p_conf = '/etc/xmlrpcd/logging.conf';
+my $default_config = '/etc/xmlrpcd/xmlrpcd.conf';
+my $config_file = $default_config;
 
 my $opts_file = App::Daemon::find_option("--config" => 1);
 if (defined $opts_file) {
-  $options = LoadFile($opts_file);
+  $config_file = $opts_file;
 }
 
 #-----------------------------------------------------------------------------
@@ -51,6 +51,14 @@ if (defined $gid) {
 if (defined $uid) {
   $< = $> = $uid;
 }
+
+#-----------------------------------------------------------------------------
+
+if (!-f $config_file || !-r _) {
+  die "Need a config file to run. Either provide one as --config option or create $default_config\n";
+}
+
+my $options = LoadFile($config_file);
 
 #-----------------------------------------------------------------------------
 
