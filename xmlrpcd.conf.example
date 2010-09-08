@@ -1,0 +1,22 @@
+ssl_cert_file: /etc/xmlrpcd/ssl/server.cert.pem
+ssl_key_file:  /etc/xmlrpcd/ssl/server.key.pem
+listen_port: 3033
+#listen_addr: localhost
+
+# authentication subsystem (use Authen::Simple-compatible modules)
+auth_method: Authen::Simple::Passwd
+auth_params:
+  # these passwords can be created using `htpasswd' utility from Apache
+  # distribution
+  path: /var/lib/xmlrpcd/passwords.htpasswd
+
+# methods
+methods:
+  # the ones that require authentication
+  auth:
+    - "/var/lib/xmlrpcd/procedures/authenticated_example/*.pm"
+  # the ones that are public and can be run even without authentication
+  public:
+    - "/var/lib/xmlrpcd/procedures/public_example/*.pm"
+
+# vim:ft=yaml

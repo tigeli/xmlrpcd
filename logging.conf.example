@@ -5,12 +5,12 @@ log4perl.category.example = DEBUG, Syslog
 
 log4perl.appender.Logfile = Log::Log4perl::Appender::File
 log4perl.appender.Logfile.mode = append
-log4perl.appender.Logfile.filename = run/xmlrpcd.log
+log4perl.appender.Logfile.filename = /var/log/xmlrpcd/xmlrpcd.log
 log4perl.appender.Logfile.layout = Log::Log4perl::Layout::PatternLayout
 log4perl.appender.Logfile.layout.ConversionPattern = %d %H xmlrpcd(%P) [%c/%p] %m%n
 
 log4perl.appender.Syslog = Log::Dispatch::Syslog
-log4perl.appender.Syslog.ident = nabla-daemon
+log4perl.appender.Syslog.ident = xmlrpcd
 log4perl.appender.Syslog.facility = daemon
 log4perl.appender.Syslog.layout = Log::Log4perl::Layout::SimpleLayout
 log4perl.appender.Syslog.Threshold = INFO
