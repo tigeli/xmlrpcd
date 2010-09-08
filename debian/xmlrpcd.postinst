@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -e
+
+if [ -z "`getent group xmlrpcd`" ]; then
+  addgroup --quiet --system xmlrpcd
+fi
+if [ -z "`getent passwd xmlrpcd`" ]; then
+  echo -n "  Creating new user xmlrpcd... " >&2
+  adduser --quiet --system --home /var/lib/xmlrpcd --shell /bin/false \
+      --ingroup xmlrpcd --disabled-password --disabled-login \
+      --gecos "XML-RPC Server Account" xmlrpcd
+  echo "done." >&2
+fi
+
+chown xmlrpcd:xmlrpcd /var/run/xmlrpcd
+chown xmlrpcd:xmlrpcd /var/lib/xmlrpcd
+chown xmlrpcd:xmlrpcd /var/log/xmlrpcd
+
+#DEBHELPER#

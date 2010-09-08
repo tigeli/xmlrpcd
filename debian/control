@@ -1,0 +1,20 @@
+Source: xmlrpcd
+Maintainer: Stanislaw Klekot <dozzie@jarowit.net>
+Section: net
+Priority: extra
+Build-Depends: debhelper (>> 7.0.0), make
+
+Package: xmlrpcd
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${perl:Depends},
+ libapp-daemon-perl, libhttp-daemon-ssl-perl, libfrontier-rpc-perl,
+ libio-socket-ssl-perl, libwww-perl,
+ libgetopt-long-descriptive-perl, libyaml-perl,
+ liblog-log4perl-perl, liblog-dispatch-perl,
+ libauthen-simple-perl, libauthen-simple-passwd-perl
+Description: XML-RPC over HTTPs daemon/client
+ This is small XML-RPC server, that supports HTTPs and HTTP authentication. It
+ doesn't need any big HTTP server, such as Apache or lighttpd.
+ .
+ Main goal was to provide easy-to-setup RPC daemon, that supports X.509/SSL
+ (for traffic protection) and optional authentication.

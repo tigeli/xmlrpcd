@@ -1,0 +1,77 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          xmlrpcd
+# Required-Start:    $network
+# Required-Stop:     
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: XML-RPC SSL daemon
+### END INIT INFO
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+EXE_SCRIPT=/usr/sbin/xmlrpcd
+NAME="xmlrpcd"
+DESC="XML-RPC SSL daemon"
+
+test -f $EXE_SCRIPT || exit 0
+
+set -e
+
+if [ -f /etc/default/xmlrpcd ]; then
+  . /etc/default/xmlrpcd
+fi
+
+
+start()
+{
+  case $XMLRPCD_START in
+    '' | 0 | false)
+      return
+    ;;
+  esac
+
+  $EXE_SCRIPT \
+    --config $XMLRPCD_CONF -l4p $XMLRPCD_LOGGING_CONF \
+    -p /var/run/$NAME/$NAME.pid \
+    ${XMLRPCD_USER:+--user $XMLRPCD_USER} \
+    ${XMLRPCD_GROUP:+--group $XMLRPCD_GROUP} \
+    start
+}
+
+stop()
+{
+  start-stop-daemon --stop --oknodo --pidfile /var/run/$NAME/$NAME.pid -v
+}
+
+status()
+{
+  $EXE_SCRIPT status
+}
+
+case "$1" in
+  start)
+  echo -n "Starting $DESC: "
+  start
+  echo "$NAME."
+  ;;
+  stop)
+  echo -n "Stopping $DESC: "
+  stop
+  echo "$NAME."
+  ;;
+  status)
+  status
+  ;;
+  restart)
+  $0 stop
+  sleep 1
+  $0 start
+  ;;
+  *)
+  N=/etc/init.d/$NAME
+  echo "Usage: $N {start|stop|status|restart}" >&2
+  exit 1
+  ;;
+esac
+
+exit 0

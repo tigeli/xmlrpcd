@@ -1,0 +1,4 @@
+/etc/xmlrpcd/*.example
+/usr/bin/xmlrpcaller
+/usr/sbin/xmlrpcd
+/usr/share/doc/xmlrpcd/*

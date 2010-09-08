@@ -1,0 +1,33 @@
+#!/usr/bin/make -f
+
+DIR_LOCATION = PREFIX=/usr SYSCONFDIR=/etc STATEDIR=/var
+
+clean:: stamp
+	${MAKE} clean
+
+build:
+	${MAKE} all $(DIR_LOCATION)
+
+install: stamp
+	${MAKE} install $(DIR_LOCATION) DESTDIR=$(CURDIR)/debian/tmp
+
+binary: install
+	dh_install
+	dh_installdirs
+	dh_installinit
+	dh_fixperms
+	dh_link
+	dh_strip
+	dh_installdeb
+	dh_perl
+	dh_makeshlibs
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+.PHONY: stamp
+stamp:
+	dh_testdir
+	dh_testroot
+	dh_clean

@@ -1,0 +1,13 @@
+# XXX: change to 1 when you have finished configuring xmlrpcd
+XMLRPCD_START=0
+
+# main configuration for daemon
+XMLRPCD_CONF=/etc/xmlrpcd/xmlrpcd.conf
+# configuration for Log::Log4perl used in daemon
+XMLRPCD_LOGGING_CONF=/etc/xmlrpcd/logging.conf
+
+# which user the daemon should start as
+XMLRPCD_USER=xmlrpcd
+# which group the daemon should start as; if empty, daemon will determine the
+# main group for $XMLRPCD_USER
+XMLRPCD_GROUP=
