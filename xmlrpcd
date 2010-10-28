@@ -102,7 +102,7 @@ my $auth = new Authen::Simple(
 
 #-----------------------------------------------------------------------------
 
-$logger = Log::Log4perl::get_logger("http");
+$logger = Log::Log4perl::get_logger("server");
 
 my $daemon = new HTTP::Daemon::SSL(
   SSL_cert_file => $options->{"ssl_cert_file"},
@@ -116,6 +116,19 @@ my $daemon = new HTTP::Daemon::SSL(
 my $rpc_server = new Frontier::RPC2();
 
 my $workers = new Proc::Queue();
+$SIG{CHLD} = sub { $workers->reap };
+$SIG{TERM} = $SIG{INT} = $SIG{HUP} = sub {
+  my ($signal) = @_;
+
+  my $logger = Log::Log4perl::get_logger("server");
+  $logger->info("Terminating on signal ", $signal);
+
+  $workers->killall;
+  exit;
+};
+
+# I don't care about broken pipe (mostly communication with connecting agents)
+$SIG{PIPE} = 'IGNORE';
 
 CLIENT:
 while (1) {
@@ -134,10 +147,15 @@ while (1) {
 sub process_client {
   my ($client, $auth, $rpc_server, $rpc_hash) = @_;
 
+  # on SIGTERM client handler should finish processing current request and
+  # THEN exit
+  my $continue_processing = 1;
+  $SIG{TERM} = $SIG{INT} = $SIG{HUP} = sub { $continue_processing = 0 };
+
   my $logger = Log::Log4perl::get_logger("client");
 
   REQUEST:
-  while (my $req = $client->get_request) {
+  while ($continue_processing && (my $req = $client->get_request)) {
     $logger->debug("Another request");
 
     if ($req->method ne 'POST') {
@@ -268,10 +286,21 @@ sub new {
 
   my $self = {
     queue => [],
-    max_len => int($args{max_len} // 0),
+    max_len => int($args{max_len} || 0),
   };
 
   return bless $self, $class;
+}
+
+sub killall {
+  my ($self, $signal) = @_;
+
+  if (not defined $signal) {
+    $signal = 'TERM';
+  }
+
+  kill $signal, @{ $self->{queue} };
+  $self->reap;
 }
 
 sub reap {
@@ -279,6 +308,9 @@ sub reap {
 
   CHILD:
   while ((my $kid = waitpid(-1, WNOHANG)) > 0) {
+    #if ($? != 0) {
+    #  printf STDERR "Error code: %d (signal %d)\n", $? >> 8, $? & 0xff;
+    #}
     for (my $i = 0; $i < @{ $self->{queue} }; ++$i) {
       if ($self->{queue}[$i] == $kid) {
         splice @{ $self->{queue} }, $i, 1;
