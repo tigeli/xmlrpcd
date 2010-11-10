@@ -15,7 +15,7 @@ def xml_rpcall(server, port, creds, method, *args):
     headers["Authorization"] = "Basic %s" % (base64.b64encode('%s:%s' % creds),)
   body = xmlrpc.dumps(args, methodname = method)
 
-  server = http.HTTPSConnection('localhost', 1638)
+  server = http.HTTPSConnection(server, port)
   server.request("POST", "/", body, headers)
   resp = server.getresponse()
   if resp.status >= 400:
