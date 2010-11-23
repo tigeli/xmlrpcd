@@ -92,7 +92,7 @@ $actual{verify_hostname} = $cmdlineopts->{verify} if defined $cmdlineopts->{veri
 
 if (defined $cmdlineopts->{username} ||
     (defined $actual{username} && !defined $actual{password})) {
-  my $user = $cmdlineopts->{username} // $actual{username};
+  my $user = $cmdlineopts->{username} || $actual{username};
   my $pass = ask_pass("Enter password for $user\@$actual{hostname}: ");
 
   if (not defined $pass or $pass eq '') {
@@ -168,7 +168,7 @@ print YAML::Dump $server->call(@ARGV);
 
 sub ask_pass {
   my ($prompt) = @_;
-  $prompt //= "Enter password: ";
+  $prompt ||= "Enter password: ";
 
   my $term = new POSIX::Termios;
   $term->getattr(fileno STDIN);
