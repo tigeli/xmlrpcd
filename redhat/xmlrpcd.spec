@@ -1,4 +1,4 @@
-%define _version 0.2
+%define _version 0.3
 %define _release 1
 %define _packager Stanislaw Klekot <dozzie@jarowit.net>
 
@@ -10,7 +10,13 @@ Group: System Environment/Daemons
 License: GPL v2
 Source0: xmlrpcd-%{_version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-root
-#URL: <none>
+# Authen::Simple::Passwd (htpasswd) and methods necessary for it to work
+Requires: perl(Authen::Simple::Passwd)
+Requires: perl(Class::Accessor), perl(Class::Data::Inheritable)
+# Log::Dispatch and necessary Sys::Syslog version
+Requires: perl(Log::Dispatch), perl(Sys::Syslog) >= 0.16
+# xmlrpcaller uses set_ctx_defaults function, which was added in 1.14 version
+Requires: perl(IO::Socket::SSL) >= 1.14
 BuildArch: noarch
 Packager: %{_packager}
 Prefix: %{_prefix}
