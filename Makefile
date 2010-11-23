@@ -29,3 +29,14 @@ install:
 	install -m 644 logging.conf.example     $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
 	install -m 644 xmlrpcaller.conf.example $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
 	install -m 644 xmlrpcd.conf.example     $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
+
+.PHONY: srpm
+
+srpm: VERSION=$(shell awk '$$1 == "%define" && $$2 == "_version" {print $$3}' redhat/xmlrpcd.spec)
+srpm:
+	rm -rf rpm-build
+	mkdir -p rpm-build/rpm/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+	git archive --format=tar --prefix=xmlrpcd-$(VERSION)/ HEAD | gzip -9 > rpm-build/rpm/SOURCES/xmlrpcd-$(VERSION).tar.gz
+	rpmbuild --define="%_usrsrc $$PWD/rpm-build" --define="%_topdir %{_usrsrc}/rpm" -bs redhat/xmlrpcd.spec
+	mv rpm-build/rpm/SRPMS/xmlrpcd-*.src.rpm .
+	rm -r rpm-build
