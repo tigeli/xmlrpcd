@@ -1,5 +1,5 @@
 %define _version 0.3
-%define _release 1
+%define _release 2
 %define _packager Stanislaw Klekot <dozzie@jarowit.net>
 
 Summary: xmlrpcd - XML-RPC over HTTPs daemon/client

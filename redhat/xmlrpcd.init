@@ -25,9 +25,9 @@ case "$1" in
   start)
     echo -n "Starting XML-RPC server daemon: "
     daemon \
-      --user $XMLRPCD_USER \
       --check $XMLRPCD_BASE \
       /usr/sbin/xmlrpcd \
+        --user $XMLRPCD_USER \
         --config $XMLRPCD_CONFIG \
         -l4p $XMLRPCD_LOG_CONFIG \
         -p $XMLRPCD_PID
