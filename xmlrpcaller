@@ -72,7 +72,7 @@ if (defined $cmdlineopts->{section}) {
     die "No default config file could be read and none specified in command line\n";
   }
   my $options = LoadFile($config);
-  $options = $options->{'caller'};
+  $options = $options->{'xmlrpcaller'};
 
   my $section = $options->{ $cmdlineopts->{section} };
 
