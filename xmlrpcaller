@@ -47,6 +47,7 @@ my @options = (
   [ "ca-file=s"    => "path to CA file" ],
   [ "skip-ca!"     => "whether verify SSL certificate or not (default: no-skip)" ],
   [ "verify!"      => "whether verify hostname with cert or not (default: verify)" ],
+  [ "print"        => "just print the returned element as string (fail if RPC returned many elements or non-string)" ],
 );
 my ($cmdlineopts, $usage) = describe_options(
   "Usage: %c %o package.method arg1 arg2 ...",
@@ -162,7 +163,25 @@ if (defined $actual{username} && defined $actual{password}) {
   );
 }
 
-print YAML::Dump $server->call(@ARGV);
+my @results = $server->call(@ARGV);
+
+if ($cmdlineopts->{'print'}) {
+  if (@results > 1) {
+    die sprintf "Remote call (%s:%d->%s) returned %d elements\n",
+                $actual{hostname}, $actual{port}, $ARGV[0],
+                scalar @results;
+  }
+
+  if (@results && ref($results[0]) ne '') {
+    die sprintf "Remote call (%s:%d->%s) returned element of type %s\n",
+                $actual{hostname}, $actual{port}, $ARGV[0],
+                ref $results[0];
+  }
+
+  printf "%s\n", $results[0] if @results;
+} else {
+  print YAML::Dump @results;
+}
 
 #-----------------------------------------------------------------------------
 
