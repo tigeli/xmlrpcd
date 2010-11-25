@@ -137,6 +137,9 @@ while (1) {
   my $client = $daemon->accept or next CLIENT;
 
   if ($workers->spawn == 0) {
+    # when daemon gets restarted while some client was processed, (new) daemon
+    # will be able to listen() on the socket
+    close $daemon;
     process_client($client, $auth, $rpc_server, $rpc_hash, $public);
     exit 0;
   }
