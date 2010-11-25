@@ -2,6 +2,7 @@ xmlrpcd (0.4-1) stable; urgency=low
 
   * Fixed xmlrpcd restart when some client was being handled.
   * Improved xmlrpcd method handling.
+  * New option to xmlrpcaller: --print.
 
  -- Stanislaw Klekot <dozzie@jarowit.net>  Thu, 25 Nov 2010 20:01:43 +0100
 
