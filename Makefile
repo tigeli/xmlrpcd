@@ -21,14 +21,14 @@ install:
 	mkdir -p $(DESTDIR)$(SBINDIR)
 	mkdir -p $(DESTDIR)$(STATEDIR)/run/xmlrpcd
 	mkdir -p $(DESTDIR)$(STATEDIR)/lib/xmlrpcd
-	cp -R procedures $(DESTDIR)$(EXAMPLES)
-	install -m 644 xmlrpcaller.py $(DESTDIR)$(EXAMPLES)
-	install -m 644 DEPENDENCIES.txt $(DESTDIR)$(DOCDIR)
-	install -m 755 xmlrpcaller $(DESTDIR)$(BINDIR)/xmlrpcaller
-	install -m 755 xmlrpcd     $(DESTDIR)$(SBINDIR)/xmlrpcd
-	install -m 644 logging.conf.example     $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
-	install -m 644 xmlrpcaller.conf.example $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
-	install -m 644 xmlrpcd.conf.example     $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
+	install -m 755 xmlrpcaller  $(DESTDIR)$(BINDIR)/xmlrpcaller
+	install -m 755 xmlrpcd      $(DESTDIR)$(SBINDIR)/xmlrpcd
+	cp -R          examples/procedures     $(DESTDIR)$(EXAMPLES)
+	install -m 644 examples/xmlrpcaller.py $(DESTDIR)$(EXAMPLES)
+	install -m 644 examples/xml-rpc.cgi    $(DESTDIR)$(EXAMPLES)
+	install -m 644 examples/logging.conf.example     $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
+	install -m 644 examples/xmlrpcaller.conf.example $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
+	install -m 644 examples/xmlrpcd.conf.example     $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
 
 .PHONY: srpm
 
