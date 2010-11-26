@@ -8,7 +8,7 @@ use CGI qw/:standard/;
 
 #-----------------------------------------------------------------------------
 
-my $glob = "/srv/xmlrpc/methods/*/*.pm";
+my $methods = "/srv/xmlrpc/methods/*/*.pm";
 
 #-----------------------------------------------------------------------------
 # prepare RPC mapping
@@ -16,7 +16,7 @@ my $glob = "/srv/xmlrpc/methods/*/*.pm";
 my $public = {};
 my $rpc_hash = {};
 
-for my $file (glob $glob) {
+for my $file (glob $methods) {
   my $load = load_method($file);
   my $method_name = "$load->{schema}.$load->{method}";
 
@@ -32,7 +32,6 @@ my $rpc_server = new Frontier::RPC2();
 my $req = new CGI();
 
 if ($req->request_method ne 'POST') {
-  # TODO: replace
   print header(-status => "401 Forbidden");
   exit;
 }
