@@ -8,7 +8,7 @@ Package: xmlrpcd
 Architecture: all
 Depends: ${shlibs:Depends}, ${misc:Depends}, ${perl:Depends},
  libapp-daemon-perl, libhttp-daemon-ssl-perl, libfrontier-rpc-perl,
- libio-socket-ssl-perl, libwww-perl,
+ libio-socket-ssl-perl, libwww-perl, liburi-perl,
  libgetopt-long-descriptive-perl, libyaml-perl,
  liblog-log4perl-perl, liblog-dispatch-perl,
  libauthen-simple-perl, libauthen-simple-passwd-perl

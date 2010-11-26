@@ -2,6 +2,7 @@ xmlrpcaller:
   # example:
   #   hostname: <mandatory>
   #   port: 3306
+  #   url: https://<hostname>:<port>/<path>
   #   username: <required-for-http-authentication>
   #   password: <will-be-asked-if-omited>
   #   ca_file: <required-if-ca_ignore-false>
@@ -10,6 +11,12 @@ xmlrpcaller:
   rudolf:
     hostname: 192.168.2.100
     port: 16333
+    username: nabla
+    password: qwerty
+    ca_ignore: true
+  rudolf_as_url:
+    # note lack of user/password in URL: these can't be set there
+    url: https://192.168.2.100:16333
     username: nabla
     password: qwerty
     ca_ignore: true

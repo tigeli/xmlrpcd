@@ -17,6 +17,8 @@ use POSIX;
 
 use Frontier::Client;
 
+use URI;
+
 #-----------------------------------------------------------------------------
 # fill some defaults
 
@@ -42,6 +44,7 @@ my @options = (
   [ "config=s"     => "path to configuration file" ],
   [ "section=s"    => "which host description from config to use" ],
   [ "host=s"       => "RPC server address" ],
+  [ "url=s"        => "URL of server address (replaces host and port, but not user nor password)" ],
   [ "username=s"   => "username for HTTP authentication (you'll be prompted for password)" ],
   [ "port=i"       => "RPC server port (default: $defaults{port})" ],
   [ "ca-file=s"    => "path to CA file" ],
@@ -87,9 +90,22 @@ if (defined $cmdlineopts->{section}) {
 
 $actual{hostname} = $cmdlineopts->{host} if defined $cmdlineopts->{host};
 $actual{port} = $cmdlineopts->{port} if defined $cmdlineopts->{port};
+$actual{url} = $cmdlineopts->{url} if defined $cmdlineopts->{url};
 $actual{ca_file} = $cmdlineopts->{ca_file} if defined $cmdlineopts->{ca_file};
 $actual{ca_ignore} = $cmdlineopts->{skip_ca} if defined $cmdlineopts->{skip_ca};
 $actual{verify_hostname} = $cmdlineopts->{verify} if defined $cmdlineopts->{verify};
+$actual{path} = ""; # XXX: this can only be set by --url option
+
+if ($actual{url}) {
+  my $url = new URI($actual{url});
+  if ($url->scheme ne 'https') {
+    die sprintf "Uknown scheme: %s\n", $url->scheme;
+  }
+  $actual{hostname} = $url->host;
+  $actual{port} = $url->port;
+  $actual{path} = $url->path_query;
+  $actual{path} =~ s{^/}{};
+}
 
 if (defined $cmdlineopts->{username} ||
     (defined $actual{username} && !defined $actual{password})) {
@@ -127,7 +143,7 @@ if (!$actual{ca_ignore} && !defined $actual{ca_file} ) {
 
 #-----------------------------------------------------------------------------
 
-my $url = sprintf "https://%s:%d/", $actual{hostname}, $actual{port};
+my $url = sprintf "https://%s:%d/%s", $actual{hostname}, $actual{port}, $actual{path};
 my $cred_location = sprintf "%s:%d", $actual{hostname}, $actual{port};
 my $cred_realm = "";
 
