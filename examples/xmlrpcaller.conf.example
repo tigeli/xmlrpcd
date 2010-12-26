@@ -32,4 +32,35 @@ xmlrpcaller:
     ca_file: /etc/xmlrpcd/ssl/some-host.cert.pem
     verify_hostname: false
 
+  # output (YAML format):
+  # us000251:
+  #   data: ... # $data{us000251}{data} contains data returned by RPC call
+  #   error: ~
+  #   exit_code: 0  # always 0 if success
+  #   hostname: us000251
+  # us000252:
+  #   data: ~
+  #   error: "500 Can't connect to 192.168.2.9:3033 (connect: No route to host)\n"
+  #   exit_code: 28928  # WEXITCODE(28928) == 113
+  #   hostname: us000252
+  # ...
+
+  multiple_hosts:
+    - hostname: us000251
+      username: root251
+      password: pass251
+      ca_file: /etc/xmlrpcd/ssl/us-all.cert.pem
+    - hostname: us000252
+      username: root252
+      password: pass252
+      ca_file: /etc/xmlrpcd/ssl/us-all.cert.pem
+    - hostname: us000253
+      username: root253
+      password: pass253
+      ca_file: /etc/xmlrpcd/ssl/us-all.cert.pem
+    - hostname: us000254
+      username: root254
+      password: pass254
+      ca_file: /etc/xmlrpcd/ssl/us-all.cert.pem
+
 # vim:ft=yaml

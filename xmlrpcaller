@@ -31,10 +31,18 @@ my %defaults = (
   ca_ignore => 'false',
   verify_hostname => 'true',
 );
-my %actual = %defaults;
+my @callees = ();
 
 my $config = first { -f && -r _ } "$ENV{HOME}/.xmlrpcaller.conf",
                                   '/etc/xmlrpcd/xmlrpcaller.conf';
+
+my %call_options = (
+  print_yaml => 'true',   # false if caller wants to print scalar
+  multicall  => undef,    # called multiple hosts
+
+  username   => undef,    # HTTP username common to all hosts in this call
+  password   => undef,    # HTTP password common to all hosts in this call
+);
 
 #-----------------------------------------------------------------------------
 # parse command line options
@@ -64,6 +72,10 @@ if ($cmdlineopts->{help}) {
   exit;
 }
 
+if ($cmdlineopts->{'print'}) {
+  $call_options{print_yaml} = undef;
+}
+
 #-----------------------------------------------------------------------------
 # read configuration file
 
@@ -80,123 +92,362 @@ if (defined $cmdlineopts->{section}) {
 
   my $section = $options->{ $cmdlineopts->{section} };
 
-  for my $key (keys %$section) {
-    $actual{$key} = $section->{$key};
+  if (ref($section) eq 'ARRAY') {
+    $call_options{multicall} = 'true';
+    @callees = @$section;
+  } elsif (ref($section) eq 'HASH') {
+    $call_options{multicall} = undef;
+    $callees[0] = $section;
   }
+} elsif (defined $cmdlineopts->{host} || defined $cmdlineopts->{url}) {
+  # everything will be filled by add_cmdline_params()
+  $callees[0] = {};
 }
 
 #-----------------------------------------------------------------------------
-# use parameters provided in command line
+# fill in host parameters
 
-$actual{hostname} = $cmdlineopts->{host} if defined $cmdlineopts->{host};
-$actual{port} = $cmdlineopts->{port} if defined $cmdlineopts->{port};
-$actual{url} = $cmdlineopts->{url} if defined $cmdlineopts->{url};
-$actual{ca_file} = $cmdlineopts->{ca_file} if defined $cmdlineopts->{ca_file};
-$actual{ca_ignore} = $cmdlineopts->{skip_ca} if defined $cmdlineopts->{skip_ca};
-$actual{verify_hostname} = $cmdlineopts->{verify} if defined $cmdlineopts->{verify};
-$actual{path} = ""; # XXX: this can only be set by --url option
+my %users_for_password;
+for my $host (@callees) {
+  # this will add default host parameters
+  %$host = ( %defaults, %$host, );
 
-if ($actual{url}) {
-  my $url = new URI($actual{url});
-  if ($url->scheme ne 'https') {
-    die sprintf "Uknown scheme: %s\n", $url->scheme;
+  add_cmdline_params($host, $cmdlineopts);
+  if (defined $host->{username} && !defined $host->{password}) {
+    $users_for_password{$host->{username}} = 1;
   }
-  $actual{hostname} = $url->host;
-  $actual{port} = $url->port;
-  $actual{path} = $url->path_query;
-  $actual{path} =~ s{^/}{};
 }
 
-if (defined $cmdlineopts->{username} ||
-    (defined $actual{username} && !defined $actual{password})) {
-  my $user = $cmdlineopts->{username} || $actual{username};
-  my $pass = ask_pass("Enter password for $user\@$actual{hostname}: ");
-
-  if (not defined $pass or $pass eq '') {
-    die "No password provided.\n";
-  }
-
-  $actual{username} = $user;
-  $actual{password} = $pass;
+if (@callees == 0) {
+  die "No hosts specified to call\n";
 }
 
 #-----------------------------------------------------------------------------
-# verify if all necessary params were provided
+# read password from terminal
 
-for my $bool_opt (qw/ca_ignore verify_hostname/) {
-  if ($actual{$bool_opt} =~ /^false$/i or not $actual{$bool_opt}) {
-    $actual{$bool_opt} = undef;
+if (defined $cmdlineopts->{username}) {
+  # if --username option was specified, this user/pass pair will override
+  # config-specified ones
+
+  my $user = $cmdlineopts->{username};
+  my $pass;
+
+  if ($call_options{multicall}) {
+    $pass = ask_pass("Enter password for $user\@[$cmdlineopts->{section}]: ");
   } else {
-    $actual{$bool_opt} = 'true';
+    $pass = ask_pass("Enter password for $user\@$callees[0]{hostname}: ");
+  }
+
+  $call_options{username} = $user;
+  $call_options{password} = $pass;
+} elsif (keys %users_for_password > 1) {
+  # multiple different users without password are not allowed
+
+  die "Multiple usernames without passwords specified in section $cmdlineopts->{section}\n";
+} elsif (%users_for_password) {
+  # there's only one user without password (possibly multiple times) in the
+  # section
+
+  my $user = (keys %users_for_password)[0]; # XXX: there's just one key here
+  my $pass = ask_pass("Enter password for $user\@[$cmdlineopts->{section}]: ");
+
+  for my $host (@callees) {
+    if (defined $host->{username} && $host->{username} eq $user &&
+        !defined $host->{password}) {
+      $host->{password} = $pass;
+    }
   }
 }
 
-if (not defined $actual{hostname}) {
-  die "No hostname provided\n";
+#-----------------------------------------------------------------------------
+
+if ($call_options{multicall}) {
+  # multiple hosts called
+
+  my %results = multicall(@callees);
+  print YAML::Dump(\%results);
+
+} else {
+  # single host call
+
+  my $host = $callees[0];
+
+  my @results = singlecall($host);
+
+  if ($call_options{print_yaml}) {
+    print YAML::Dump @results;
+  } else {
+    if (@results > 1) {
+      die sprintf "Remote call (%s:%d->%s) returned %d elements\n",
+                  $host->{hostname}, $host->{port}, $ARGV[0],
+                  scalar @results;
+    }
+
+    if (@results && ref($results[0]) ne '') {
+      die sprintf "Remote call (%s:%d->%s) returned element of type %s\n",
+                  $host->{hostname}, $host->{port}, $ARGV[0],
+                  ref $results[0];
+    }
+
+    printf "%s\n", $results[0] if @results;
+  }
 }
-if (not defined $actual{port}) {
-  die "No port specified\n";
-}
-if (!$actual{ca_ignore} && !defined $actual{ca_file} ) {
-  die "No CA specified\n";
+
+#-----------------------------------------------------------------------------
+#
+# utility functions
+#
+#-----------------------------------------------------------------------------
+
+# NOTE: side effects
+sub add_cmdline_params {
+  my ($params, $cmdlineopts) = @_;
+
+  # 'internal parameter name' => 'command line option'
+  my %translate = (
+    hostname  => 'host',
+    port      => 'port',
+    url       => 'url',
+    ca_file   => 'ca_file',
+    ca_ignore => 'skip_ca',
+    verify_hostname => 'verify',
+  );
+
+  for my $k (keys %translate) {
+    if (defined $cmdlineopts->{ $translate{$k} }) {
+      $params->{$k} = $cmdlineopts->{ $translate{$k} };
+    }
+  }
+  $params->{path} = ""; # XXX: this can only be set by --url option
+
+  # overwrite host/port if URL was provided
+  if ($params->{url}) {
+    my $url = new URI($params->{url});
+    if ($url->scheme ne 'https') {
+      die sprintf "Uknown scheme: %s for URL %s\n",
+                  $url->scheme, $params->{url};
+    }
+    $params->{hostname} = $url->host;
+    $params->{port} = $url->port;
+    $params->{path} = $url->path_query;
+    $params->{path} =~ s{^/}{};
+  }
+
+  # normalize boolean options
+  for my $bool_opt (qw/ca_ignore verify_hostname/) {
+    if ($params->{$bool_opt} =~ /^false$/i or not $params->{$bool_opt}) {
+      $params->{$bool_opt} = undef;
+    } else {
+      $params->{$bool_opt} = 'true';
+    }
+  }
+
+  if ($params->{ca_ignore}) {
+    delete $params->{ca_file};
+  }
+
+  if (not defined $params->{hostname}) {
+    die "No hostname provided\n";
+  }
+  if (not defined $params->{port}) {
+    die "No port specified for $params->{hostname}\n";
+  }
+  if (!$params->{ca_ignore} && !defined $params->{ca_file} ) {
+    die "No CA specified for $params->{hostname}\n";
+  }
 }
 
 #-----------------------------------------------------------------------------
 
-my $url = sprintf "https://%s:%d/%s", $actual{hostname}, $actual{port}, $actual{path};
-my $cred_location = sprintf "%s:%d", $actual{hostname}, $actual{port};
-my $cred_realm = "";
+# if CA is meant to be ignored, $ca_file should be undef
+sub set_ssl_defaults {
+  my ($ca_file, $verify_hostname) = @_;
 
-IO::Socket::SSL::set_ctx_defaults(
-  verify_mode => (
-    $actual{ca_ignore} ?
-      Net::SSLeay->VERIFY_NONE() :
-      Net::SSLeay->VERIFY_PEER()
-  ),
-  ca_file => (
-    $actual{ca_ignore} ?
-    undef :
-    $actual{ca_file}
-  ),
-  verifycn_scheme => (
-    $actual{verify_hostname} ?
-    'http' :
-    undef
-  ),
-);
-
-#-----------------------------------------------------------------------------
-
-my $server = new Frontier::Client(
-  url => $url,
-);
-
-# XXX: this is kinda hack on Frontier::Client, but there's no way to pass
-if (defined $actual{username} && defined $actual{password}) {
-  $server->{ua}->credentials(
-    $cred_location, $cred_realm,
-    $actual{username}, $actual{password}
+  IO::Socket::SSL::set_ctx_defaults(
+    verify_mode => (
+      defined $ca_file ?
+        Net::SSLeay->VERIFY_PEER() :
+        Net::SSLeay->VERIFY_NONE()
+    ),
+    ca_file => $ca_file,
+    verifycn_scheme => ($verify_hostname ? 'http' : undef),
   );
 }
 
-my @results = $server->call(@ARGV);
+#-----------------------------------------------------------------------------
 
-if ($cmdlineopts->{'print'}) {
-  if (@results > 1) {
-    die sprintf "Remote call (%s:%d->%s) returned %d elements\n",
-                $actual{hostname}, $actual{port}, $ARGV[0],
-                scalar @results;
+# args:
+#   hostname -\
+#   port     -- all these form URL to connect to
+#   path     -/
+#   ca_file  - undef if going to be skipped
+#   verify_hostname
+#   username
+#   password
+sub xmlrpcall {
+  my (%params) = @_;
+
+  set_ssl_defaults($params{ca_file}, $params{verify_hostname});
+
+  my $server = new Frontier::Client(
+    url => sprintf "https://%s:%d/%s",
+                   $params{hostname}, $params{port}, $params{path}
+  );
+
+  if (defined $params{username} && defined $params{password}) {
+    # XXX: this is kinda hack on Frontier::Client, but there's no way to pass
+    $server->{ua}->credentials(
+      # location
+      sprintf("%s:%d", $params{hostname}, $params{port}),
+      # realm (expected to be an empty string)
+      "",
+      $params{username}, $params{password}
+    );
   }
 
-  if (@results && ref($results[0]) ne '') {
-    die sprintf "Remote call (%s:%d->%s) returned element of type %s\n",
-                $actual{hostname}, $actual{port}, $ARGV[0],
-                ref $results[0];
+  my @results = $server->call(@ARGV);
+
+  return @results;
+}
+
+#-----------------------------------------------------------------------------
+
+sub singlecall {
+  my ($host) = @_;
+
+  my %common_user_pass;
+  if (defined $call_options{username} &&
+      defined $call_options{password}) {
+    %common_user_pass = (
+      username => $call_options{username},
+      password => $call_options{password},
+    );
   }
 
-  printf "%s\n", $results[0] if @results;
-} else {
-  print YAML::Dump @results;
+  my @results = xmlrpcall(%$host, %common_user_pass);
+  return @results;
+}
+
+#-----------------------------------------------------------------------------
+
+sub fork_call {
+  my ($sub) = @_;
+
+  my $pid;
+  pipe my ($stdout_r, $stdout_w);
+  pipe my ($stderr_r, $stderr_w);
+
+  $pid = fork;
+  if ($pid < -1) {
+    die "fork() failed: $!";
+  }
+
+  # XXX: child process
+  if ($pid == 0) {
+    open STDIN, "<", "/dev/null"; # just to be sure
+    open STDOUT, ">&", $stdout_w;
+    open STDERR, ">&", $stderr_w;
+    close $_ for $stdout_r, $stdout_w, $stderr_r, $stderr_w;
+
+    $sub->();
+    exit;
+  }
+
+  close $_ for $stdout_w, $stderr_w;
+  return {
+    stdout => $stdout_r,
+    stderr => $stderr_r,
+    pid => $pid,
+  };
+}
+
+sub multicall {
+  my (@hosts) = @_;
+
+  my %common_user_pass;
+  if (defined $call_options{username} &&
+      defined $call_options{password}) {
+    %common_user_pass = (
+      username => $call_options{username},
+      password => $call_options{password},
+    );
+  }
+
+  use POSIX ":sys_wait_h";
+  my %hosts;
+  my $kids = 0;
+
+  $SIG{CHLD} = sub {
+    my $kid;
+    while (1) {
+      $kid = waitpid(-1, WNOHANG);
+      last if $kid <= 0;
+
+      $hosts{$kid}{exit_code} = $?;
+      --$kids;
+    }
+  };
+
+  use IO::Poll;
+  my $poll = new IO::Poll();
+
+  for my $host (@hosts) {
+    my $child = fork_call(
+      sub { print YAML::Dump(xmlrpcall(%$host, %common_user_pass)); }
+    );
+    $child->{hostname} = $host->{hostname};
+    ++$kids;
+
+    $hosts{$child->{pid}} = $child;
+    $poll->mask($child->{stdout} => POLLIN);
+    $poll->mask($child->{stderr} => POLLIN);
+  }
+
+  while ($poll->handles) {
+    $poll->poll(1); # wait for 1s
+
+    for my $kid (keys %hosts) {
+
+      if (defined $hosts{$kid}{stdout} &&
+          $poll->events($hosts{$kid}{stdout})) {
+        my $fh = $hosts{$kid}{stdout};
+        my $yaml = join '', <$fh>;
+        $poll->remove($hosts{$kid}{stdout});
+        delete $hosts{$kid}{stdout};
+
+        if (defined $yaml && $yaml =~ /\S/) {
+          $hosts{$kid}{"stdout_data"} = YAML::Load($yaml);
+        }
+      }
+
+      if (defined $hosts{$kid}{stderr} &&
+          $poll->events($hosts{$kid}{stderr})) {
+        my $fh = $hosts{$kid}{stderr};
+        my $data = join '', <$fh>;
+        $poll->remove($hosts{$kid}{stderr});
+        delete $hosts{$kid}{stderr};
+
+        if (defined $data && $data =~ /\S/) {
+          $hosts{$kid}{"stderr_data"} = $data;
+        }
+      }
+
+    } # foreach (%kid)
+  } # while ($poll->handles)
+
+  # wait for all kids to finish
+  while ($kids > 0) {
+    select undef, undef, undef, 0.1;
+  }
+
+  return map {
+    $hosts{$_}{hostname} => {
+      hostname    => $hosts{$_}{hostname},
+      exit_code   => $hosts{$_}{exit_code},
+      data        => $hosts{$_}{stdout_data},
+      error       => $hosts{$_}{stderr_data},
+    }
+  } keys %hosts;
 }
 
 #-----------------------------------------------------------------------------
