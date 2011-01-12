@@ -296,13 +296,9 @@ sub xmlrpcall {
 
   if (defined $params{username} && defined $params{password}) {
     # XXX: this is kinda hack on Frontier::Client, but there's no way to pass
-    $server->{ua}->credentials(
-      # location
-      sprintf("%s:%d", $params{hostname}, $params{port}),
-      # realm (expected to be an empty string)
-      "",
-      $params{username}, $params{password}
-    );
+    # UA or credentials
+    bless $server->{ua}, "LWP::UserAgent::XMLRPC";
+    $server->{ua}->credentials($params{username}, $params{password});
   }
 
   my @results = $server->call(@ARGV);
@@ -472,6 +468,42 @@ sub ask_pass {
   $term->setattr(fileno STDIN, &POSIX::TCSANOW);
 
   return $pass;
+}
+
+#-----------------------------------------------------------------------------
+
+package LWP::UserAgent::XMLRPC;
+
+use base qw{LWP::UserAgent};
+
+sub credentials {
+  my ($self, $user, $pass) = @_[0, -2, -1];
+
+  if (@_ == 3) {
+    $self->{basic_authentication} = [$user, $pass];
+  } else {
+    my ($loc, $realm) = @_[1, 2];
+    $self->{basic_authentication} = {
+      lc($loc) => { $realm => [$user, $pass] }
+    };
+  }
+}
+
+sub get_basic_credentials {
+  my ($self, $realm, $uri, $isproxy) = @_;
+
+  return if $isproxy;
+  $uri = lc $uri;
+
+  if (ref($self->{basic_authentication}) eq "ARRAY") {
+    return @{ $self->{basic_authentication} };
+  }
+
+  if (exists $self->{basic_authentication}{$uri}{$realm}) {
+    return @{ $self->{basic_authentication}{$uri}{$realm} };
+  }
+
+  return ();
 }
 
 #-----------------------------------------------------------------------------
