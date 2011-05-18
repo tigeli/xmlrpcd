@@ -140,6 +140,8 @@ while (1) {
     # when daemon gets restarted while some client was processed, (new) daemon
     # will be able to listen() on the socket
     close $daemon;
+    # in child process, `` should return status in $? variable normally
+    $SIG{CHLD} = "DEFAULT";
     process_client($client, $auth, $rpc_server, $rpc_hash, $public);
     exit 0;
   }
