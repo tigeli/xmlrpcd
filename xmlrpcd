@@ -161,43 +161,45 @@ sub process_client {
 
   my $logger = Log::Log4perl::get_logger("client");
 
-  REQUEST:
-  while ($continue_processing && (my $req = $client->get_request)) {
-    $logger->debug("Another request");
-
-    if ($req->method ne 'POST') {
-      $logger->info("HTTP request ", $req->method, ": denying");
-      $client->send_error(RC_FORBIDDEN);
-      next REQUEST;
-    }
-
-    my $req_decoded = $rpc_server->decode($req->content);
-
-    if (not $public->{$req_decoded->{method_name}}) {
-      # XXX: authenticate if method was not marked as public
-
-      $logger->debug("Request for ", $req_decoded->{method_name},
-                     " requires authentication");
-
-      my $auth_user = authenticate($req, $auth);
-      if (not defined $auth_user) {
-        $logger->debug("Unauthorized request");
-        my $resp = new HTTP::Response(401, 'Unauthorized');
-        $resp->header('WWW-Authenticate' => 'Basic realm=""');
-
-        $client->send_response($resp);
-        next REQUEST;
-      }
-
-      $logger->debug("Request authorized (user ", $auth_user, ")");
-    }
-
-    my $xml_resp = $rpc_server->serve($req->content, $rpc_hash);
-
-    my $resp = new HTTP::Response(200, 'OK', undef, $xml_resp);
-
-    $client->send_response($resp);
+  my $req = $client->get_request;
+  if (not $req) {
+    return;
   }
+
+  $logger->debug("Another request");
+
+  if ($req->method ne 'POST') {
+    $logger->info("HTTP request ", $req->method, ": denying");
+    $client->send_error(RC_FORBIDDEN);
+    return;
+  }
+
+  my $req_decoded = $rpc_server->decode($req->content);
+
+  if (not $public->{$req_decoded->{method_name}}) {
+    # XXX: authenticate if method was not marked as public
+
+    $logger->debug("Request for ", $req_decoded->{method_name},
+                   " requires authentication");
+
+    my $auth_user = authenticate($req, $auth);
+    if (not defined $auth_user) {
+      $logger->debug("Unauthorized request");
+      my $resp = new HTTP::Response(401, 'Unauthorized');
+      $resp->header('WWW-Authenticate' => 'Basic realm=""');
+
+      $client->send_response($resp);
+      return;
+    }
+
+    $logger->debug("Request authorized (user ", $auth_user, ")");
+  }
+
+  my $xml_resp = $rpc_server->serve($req->content, $rpc_hash);
+
+  my $resp = new HTTP::Response(200, 'OK', undef, $xml_resp);
+
+  $client->send_response($resp);
 }
 
 #-----------------------------------------------------------------------------
