@@ -33,8 +33,8 @@ start()
   $EXE_SCRIPT \
     --config $XMLRPCD_CONF -l4p $XMLRPCD_LOGGING_CONF \
     -p /var/run/$NAME/$NAME.pid \
-    ${XMLRPCD_USER:+--user $XMLRPCD_USER} \
-    ${XMLRPCD_GROUP:+--group $XMLRPCD_GROUP} \
+    ${XMLRPCD_USER:+--default-user $XMLRPCD_USER} \
+    ${XMLRPCD_GROUP:+--default-group $XMLRPCD_GROUP} \
     start
 }
 

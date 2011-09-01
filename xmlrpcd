@@ -30,30 +30,22 @@ if (defined $opts_file) {
 }
 
 #-----------------------------------------------------------------------------
-# change UID/GID, if applicable
+# UID/GID stuff
 
-my $uid = App::Daemon::find_option("--user" => 1);
-my $gid = App::Daemon::find_option("--group" => 1);
+# I need to have possibility to change UID/GID, so this daemon needs to run as
+# root
+unshift @ARGV, "-u", "root";
 
-if (defined $gid) {
-  $gid = getgrnam $gid unless $gid =~ /^\d+$/;
-}
-if (defined $uid) {
-  $uid = getpwnam $uid unless $uid =~ /^\d+$/;
-  if (not defined $gid) {
-    $gid = (getpwuid $uid)[3];
-  }
-}
+# get command-line specified default IDs
+our $DEFAULT_UID = App::Daemon::find_option("--default-user" => 1) || 'xmlrpcd';
+our $DEFAULT_GID = App::Daemon::find_option("--default-group" => 1);
 
-if (defined $gid) {
-  $( = $) = "$gid $gid";
-}
-if (defined $uid) {
-  $< = $> = $uid;
+$DEFAULT_UID = getpwnam $DEFAULT_UID unless $DEFAULT_UID =~ /^\d+$/;
 
-  if ($uid eq 'root' || $uid eq '0') {
-    unshift @ARGV, "-u", "root";
-  }
+if (defined $DEFAULT_GID) {
+  $DEFAULT_GID = getgrnam $DEFAULT_GID unless $DEFAULT_GID =~ /^\d+$/;
+} else {
+  $DEFAULT_GID = (getpwuid $DEFAULT_UID)[3];
 }
 
 #-----------------------------------------------------------------------------

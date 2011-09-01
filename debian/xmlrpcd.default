@@ -6,8 +6,8 @@ XMLRPCD_CONF=/etc/xmlrpcd/xmlrpcd.conf
 # configuration for Log::Log4perl used in daemon
 XMLRPCD_LOGGING_CONF=/etc/xmlrpcd/logging.conf
 
-# which user the daemon should start as
+# which user the daemon should run commands as
 XMLRPCD_USER=xmlrpcd
-# which group the daemon should start as; if empty, daemon will determine the
-# main group for $XMLRPCD_USER
+# which group the daemon should run commands as; if empty, daemon will
+# determine the main group for $XMLRPCD_USER
 XMLRPCD_GROUP=

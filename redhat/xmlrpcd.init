@@ -27,7 +27,8 @@ case "$1" in
     daemon \
       --check $XMLRPCD_BASE \
       /usr/sbin/xmlrpcd \
-        --user $XMLRPCD_USER \
+        --default-user  $XMLRPCD_USER  \
+        --default-group $XMLRPCD_GROUP \
         --config $XMLRPCD_CONFIG \
         -l4p $XMLRPCD_LOG_CONFIG \
         -p $XMLRPCD_PID
