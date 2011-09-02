@@ -262,7 +262,7 @@ sub load_method {
 
   my $sub;
   eval "
-    package rpcmethod::$package;
+    package rpcmethod::${package}::${method};
     require \$path;
     \$sub = \\&entry_point;
   ";
