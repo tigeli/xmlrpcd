@@ -163,13 +163,14 @@ sub process_client {
 
   my $req_decoded = $rpc_server->decode($req->content);
 
+  my $auth_user;
   if (not $public->{$req_decoded->{method_name}}) {
     # XXX: authenticate if method was not marked as public
 
     $logger->debug("Request for ", $req_decoded->{method_name},
                    " requires authentication");
 
-    my $auth_user = authenticate($req, $auth);
+    $auth_user = authenticate($req, $auth);
     if (not defined $auth_user) {
       $logger->debug("Unauthorized request");
       my $resp = new HTTP::Response(401, 'Unauthorized');
@@ -182,7 +183,14 @@ sub process_client {
     $logger->debug("Request authorized (user ", $auth_user, ")");
   }
 
-  my $xml_resp = $rpc_server->serve($req->content, $rpc_hash);
+  my $xml_resp = do {
+    # XXX: there's no convenient way of communicating with method handlers,
+    # what implies that I can't pass any additional arguments (like $auth_user
+    # or client IP address) to prepare_environment() function
+    local our $REQUEST_CALLER_ADDRESS  = $client->peerhost;
+    local our $REQUEST_CALLER_USERNAME = $auth_user;
+    $rpc_server->serve($req->content, $rpc_hash);
+  };
 
   my $resp = new HTTP::Response(200, 'OK', undef, $xml_resp);
 
@@ -296,6 +304,9 @@ sub load_method {
 sub prepare_environment {
   my ($env) = @_;
 
+  #---------------------------------------------------------------------------
+  # change UID/GID from root to appropriate ones
+
   sub resolve_uid_gid {
     my ($uid, $gid) = @_;
 
@@ -319,18 +330,24 @@ sub prepare_environment {
   $( = $) = "$gid $gid";
   $< = $> = $uid;
 
+  #---------------------------------------------------------------------------
+  # append additional method arguments, as defined in RPC_PARAMS in method
+  # definition
+
   my @additional_args;
 
-  # TODO
+  # for information on what is in these variables, see process_client()
+  # function
+  our $REQUEST_CALLER_ADDRESS;
+  our $REQUEST_CALLER_USERNAME;
+
   for my $param (@{ $env->{params} }) {
     if ($param eq 'user') {
       # authenticated user
-      #push @additional_args, ???
-      push @additional_args, undef; # not authenticated
+      push @additional_args, $REQUEST_CALLER_USERNAME;
     } elsif ($param eq 'address') {
       # IP address of caller
-      #push @additional_args, ???
-      push @additional_args, '0.0.0.0';
+      push @additional_args, $REQUEST_CALLER_ADDRESS;
     } else {
       # unknown parameter; leave undef
       # TODO: warn
