@@ -59,6 +59,7 @@ my @options = (
   [ "skip-ca!"     => "whether verify SSL certificate or not (default: no-skip)" ],
   [ "verify!"      => "whether verify hostname with cert or not (default: verify)" ],
   [ "print"        => "just print the returned element as string (fail if RPC returned many elements or non-string)" ],
+  [ "params=s"     => "YAML file containing all the parameters to remote subroutine (replacement for specifying them in command line)" ],
 );
 my ($cmdlineopts, $usage) = describe_options(
   "Usage: %c %o package.method arg1 arg2 ...",
@@ -74,6 +75,10 @@ if ($cmdlineopts->{help}) {
 
 if ($cmdlineopts->{'print'}) {
   $call_options{print_yaml} = undef;
+}
+
+if ($cmdlineopts->{'params'}) {
+  @ARGV = ($ARGV[0], YAML::LoadFile($cmdlineopts->{'params'}));
 }
 
 #-----------------------------------------------------------------------------
