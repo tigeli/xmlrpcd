@@ -40,14 +40,6 @@ unshift @ARGV, "-u", "root";
 our $DEFAULT_UID = App::Daemon::find_option("--default-user" => 1) || 'xmlrpcd';
 our $DEFAULT_GID = App::Daemon::find_option("--default-group" => 1);
 
-$DEFAULT_UID = getpwnam $DEFAULT_UID unless $DEFAULT_UID =~ /^\d+$/;
-
-if (defined $DEFAULT_GID) {
-  $DEFAULT_GID = getgrnam $DEFAULT_GID unless $DEFAULT_GID =~ /^\d+$/;
-} else {
-  $DEFAULT_GID = (getpwuid $DEFAULT_UID)[3];
-}
-
 #-----------------------------------------------------------------------------
 
 if (!-f $config_file || !-r _) {
@@ -81,7 +73,10 @@ for my $cat (qw/auth public/) {
         $public->{$method_name} = 1;
       }
       if (not exists $rpc_hash->{$method_name}) {
-        $rpc_hash->{$method_name} = $load->{"proc"};
+        $rpc_hash->{$method_name} = sub {
+          my @params = prepare_environment($load);
+          $load->{"proc"}(@params, @_);
+        };
       }
     }
   }
@@ -255,18 +250,95 @@ sub load_method {
   }
 
   my $sub;
+  my $pkg;
   eval "
     package rpcmethod::${package}::${method};
     require \$path;
     \$sub = \\&entry_point;
+    \$pkg = \\%rpcmethod::${package}::${method}::;
   ";
   die $@ if $@;
 
-  return {
+  my $result = {
     schema => $package,
     method => $method,
     proc   => $sub,
   };
+
+  # undef if no symbol
+  sub take_symbol_scalar_value {
+    my ($package, $symbol) = @_;
+
+    # symbol has to exist
+    return if not defined $package->{$symbol};
+    # symbol has to contain a scalar
+    return if not defined *{ $package->{$symbol} }{SCALAR};
+    # reference to scalar's value (reference to anonymous scalar, if the
+    # scalar wasn't created yet)
+    my $glob_ref = *{ $package->{$symbol} }{SCALAR};
+
+    return $glob_ref && $$glob_ref;
+  }
+
+  my %scalars = qw(
+    uid       RPC_UID
+    gid       RPC_GID
+    params    RPC_PARAMS
+  );
+  while (my ($key, $symbol) = each %scalars) {
+    $result->{$key} = take_symbol_scalar_value($pkg, $symbol);
+  }
+
+  return $result;
+}
+
+# $env is the same hash as returned by load_method()
+sub prepare_environment {
+  my ($env) = @_;
+
+  sub resolve_uid_gid {
+    my ($uid, $gid) = @_;
+
+    $uid = getpwnam $uid unless $uid =~ /^\d+$/;
+
+    if (defined $gid) {
+      $gid = getgrnam $gid unless $gid =~ /^\d+$/;
+    } else {
+      $gid = (getpwuid $uid)[3];
+    }
+
+    return ($uid, $gid);
+  }
+
+  my ($uid, $gid) = ($DEFAULT_UID, $DEFAULT_GID);
+  if (defined $env->{uid}) {
+    ($uid, $gid) = ($env->{uid}, $env->{gid}); # even if GID is undef
+  }
+  ($uid, $gid) = resolve_uid_gid($uid, $gid);
+
+  $( = $) = "$gid $gid";
+  $< = $> = $uid;
+
+  my @additional_args;
+
+  # TODO
+  for my $param (@{ $env->{params} }) {
+    if ($param eq 'user') {
+      # authenticated user
+      #push @additional_args, ???
+      push @additional_args, undef; # not authenticated
+    } elsif ($param eq 'address') {
+      # IP address of caller
+      #push @additional_args, ???
+      push @additional_args, '0.0.0.0';
+    } else {
+      # unknown parameter; leave undef
+      # TODO: warn
+      push @additional_args, undef;
+    }
+  }
+
+  return @additional_args;
 }
 
 #-----------------------------------------------------------------------------
