@@ -298,7 +298,9 @@ sub xmlrpcall {
     # XXX: this is kinda hack on Frontier::Client, but there's no way to pass
     # UA or credentials
     bless $server->{ua}, "LWP::UserAgent::XMLRPC";
-    $server->{ua}->credentials($params{username}, $params{password});
+    $server->{ua}->xmlrpcd_store_credentials(
+      $params{username}, $params{password},
+    );
   }
 
   my @results = $server->call(@ARGV);
@@ -477,6 +479,16 @@ package LWP::UserAgent::XMLRPC;
 use base qw{LWP::UserAgent};
 
 sub credentials {
+  my ($self, @others) = @_;
+
+  if (@others == 2) {
+    return $self->get_basic_credentials(@others)
+  } else {
+    return $self->xmlrpcd_store_credentials(@others);
+  }
+}
+
+sub xmlrpcd_store_credentials {
   my ($self, $user, $pass) = @_[0, -2, -1];
 
   if (@_ == 3) {
