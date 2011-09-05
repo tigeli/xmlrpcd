@@ -1,4 +1,4 @@
-%define _version 0.6
+%define _version 0.7
 %define _release 1
 %define _packager Stanislaw Klekot <dozzie@jarowit.net>
 

@@ -1,3 +1,20 @@
+xmlrpcd (0.7-1) stable; urgency=low
+
+  * xmlrpcaller:
+    * xmlrpcaller can call URLs with different realms
+    * Fixed xmlrpcaller for new LWP (e.g. for Debian 6.0).
+    * Enabled xmlrpcaller to read YAML file with arguments to remote
+      procedure.
+    * Lowered number of simultaneous connections to remote hosts to fixed 8.
+  * xmlrpcd:
+    * Fixed qx// operator in methods.
+    * Fixed collision in global variables in methods of the same package.
+    * Enabled methods to specify UID/GID for execution.
+    * Enabled methods to get additional arguments (IP, username).
+    * Fixed improper PID file permissions.
+
+ -- Stanislaw Klekot <dozzie@jarowit.net>  Mon, 05 Sep 2011 17:41:29 +0200
+
 xmlrpcd (0.6-1) stable; urgency=low
 
   * Added support for calling multiple hosts at single xmlrpcaller run.
