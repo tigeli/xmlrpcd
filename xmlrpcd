@@ -29,6 +29,27 @@ if (defined $opts_file) {
   $config_file = $opts_file;
 }
 
+my $help = App::Daemon::find_option("--help");
+if ($help) {
+  printf "Usage: %s [options]\n", (split m[/], $0)[-1];
+  printf "\nOptions:\n";
+  printf "--config %s\n", $default_config;
+  printf "  configuration file\n";
+  printf "-l4p %s\n", $App::Daemon::l4p_conf;
+  printf "  Log::Log4perl configuration file\n";
+  printf "--default-user xmlrpcd\n";
+  printf "  default UID to run methods as (method can override this)\n";
+  printf "--default-group xmlrpcd\n";
+  printf "  default GID to run methods as (method can override this)\n";
+  printf "-p %s\n", $App::Daemon::pidfile;
+  printf "  file to save PID\n";
+  printf "-X\n";
+  printf "  option prevents %s from detaching and sets general debugging stuff\n",
+         (split m[/], $0)[-1];
+
+  exit 0;
+}
+
 #-----------------------------------------------------------------------------
 # UID/GID stuff
 
