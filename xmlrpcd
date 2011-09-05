@@ -51,6 +51,12 @@ my $options = LoadFile($config_file);
 #-----------------------------------------------------------------------------
 
 daemonize();
+# XXX: due to bug in App::Daemon, I need to take care on my own to set proper
+# permissions; PID file with 0666 perms is a simple way to fall victim to DoS
+# attack (echo 1 > $pidfile, wait for admin to /etc/init.d/xmlrpcd stop);
+# while this still leaves race condition, it's way better than simply keep
+# 0666 perms
+chmod 0644, $App::Daemon::pidfile;
 
 my $logger = Log::Log4perl::get_logger("initialization");
 
