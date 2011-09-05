@@ -14,6 +14,20 @@ XMLRPCD_LOG_CONFIG=/etc/xmlrpcd/logging.conf
 
 XMLRPCD_PID=/var/run/xmlrpcd/xmlrpcd.pid
 
+# XXX: this is mainly for Red Hat Enterprise Linux 4.x, where vendor and perl
+# directories occur in wrong order in @INC
+SYS_SYSLOG_DIR=$(
+  /usr/bin/perl -MConfig -le '
+    eval { require Log::Dispatch::Syslog };
+    exit unless $@;
+    print join ":", grep { -f "$_/Sys/Syslog.pm" }
+                         @Config{qw{installvendorarch installvendorlib}};
+  '
+)
+if [ -n "$SYS_SYSLOG_DIR" ]; then
+  export PERL5LIB=$SYS_SYSLOG_DIR
+fi
+
 # pull in any user defined XMLRPCD_* variables
 [ -f /etc/sysconfig/xmlrpcd ] && . /etc/sysconfig/xmlrpcd
 
