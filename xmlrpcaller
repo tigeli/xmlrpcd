@@ -3,20 +3,24 @@
 use warnings;
 use strict;
 
+use constant {
+  MAX_SIMULTANEOUS_CALLS => 8,
+};
+
 # XXX: IO::Socket::SSL must be loaded before LWP::UserAgent, so the latter
 # uses that instead of Net::SSL. Load them at the very beginning, just to make
 # sure none of the other modules messes with this.
 use IO::Socket::SSL;
 use LWP::UserAgent;
 
+use Frontier::Client;
+
 use YAML qw/LoadFile/;
 use Getopt::Long::Descriptive;
-use List::Util qw/first/;
 
 use POSIX;
 use URI;
-
-use Frontier::Client;
+use List::Util qw/first/;
 
 #-----------------------------------------------------------------------------
 # default parameters {{{
@@ -303,9 +307,9 @@ sub ask_pass { # {{{
 sub singlecall { # {{{
   my ($host) = @_;
 
+  # replace user/pass possibly coming from config file
   my %common_user_pass;
-  if (defined $call_options{username} &&
-      defined $call_options{password}) {
+  if (defined $call_options{username} && defined $call_options{password}) {
     %common_user_pass = (
       username => $call_options{username},
       password => $call_options{password},
@@ -318,128 +322,49 @@ sub singlecall { # {{{
 
 #-----------------------------------------------------------------------------
 
-# TODO: rewrite to use Worker::Spool
 sub multicall { # {{{
   my (@hosts) = @_;
 
+  # replace user/pass possibly coming from config file
   my %common_user_pass;
-  if (defined $call_options{username} &&
-      defined $call_options{password}) {
+  if (defined $call_options{username} && defined $call_options{password}) {
     %common_user_pass = (
       username => $call_options{username},
       password => $call_options{password},
     );
   }
 
-  use POSIX ":sys_wait_h";
-  my %hosts;
-  my $kids = 0;
+  my $spool = Worker::Spool->new(
+    task => sub {
+      my ($host) = @_;
+      $0 = "[xmlrpcaller $host->{hostname}]"; # this looks nice in `ps -f'
+      print YAML::Dump(
+        xmlrpcall(%$host, %common_user_pass)
+      );
+    },
+  );
+  my @results = $spool->natatime(MAX_SIMULTANEOUS_CALLS, @hosts);
 
-  $SIG{CHLD} = sub {
-    my $kid;
-    while (1) {
-      $kid = waitpid(-1, WNOHANG);
-      last if $kid <= 0;
-
-      $hosts{$kid}{exit_code} = $?;
-      --$kids;
+  my %results;
+  for my $r (@results) {
+    my $h = $results{ $r->{args}[0]{hostname} } = {
+      hostname => $r->{args}[0]{hostname},
+    };
+    if (defined $r->{result}{exit_status}) {
+      $h->{exit_code} = $r->{result}{exit_status};
     }
-  };
-
-  use IO::Poll;
-  my $poll = new IO::Poll();
-
-  for my $host (@hosts) {
-    my $child = fork_call(
-      sub { print YAML::Dump(xmlrpcall(%$host, %common_user_pass)); }
-    );
-    $child->{hostname} = $host->{hostname};
-    ++$kids;
-
-    $hosts{$child->{pid}} = $child;
-    $poll->mask($child->{stdout} => POLLIN);
-    $poll->mask($child->{stderr} => POLLIN);
-  }
-
-  while ($poll->handles) {
-    $poll->poll(1); # wait for 1s
-
-    for my $kid (keys %hosts) {
-
-      if (defined $hosts{$kid}{stdout} &&
-          $poll->events($hosts{$kid}{stdout})) {
-        my $fh = $hosts{$kid}{stdout};
-        my $yaml = join '', <$fh>;
-        $poll->remove($hosts{$kid}{stdout});
-        delete $hosts{$kid}{stdout};
-
-        if (defined $yaml && $yaml =~ /\S/) {
-          $hosts{$kid}{"stdout_data"} = YAML::Load($yaml);
-        }
-      }
-
-      if (defined $hosts{$kid}{stderr} &&
-          $poll->events($hosts{$kid}{stderr})) {
-        my $fh = $hosts{$kid}{stderr};
-        my $data = join '', <$fh>;
-        $poll->remove($hosts{$kid}{stderr});
-        delete $hosts{$kid}{stderr};
-
-        if (defined $data && $data =~ /\S/) {
-          $hosts{$kid}{"stderr_data"} = $data;
-        }
-      }
-
-    } # foreach (%kid)
-  } # while ($poll->handles)
-
-  # wait for all kids to finish
-  while ($kids > 0) {
-    select undef, undef, undef, 0.1;
-  }
-
-  return map {
-    $hosts{$_}{hostname} => {
-      hostname    => $hosts{$_}{hostname},
-      exit_code   => $hosts{$_}{exit_code},
-      data        => $hosts{$_}{stdout_data},
-      error       => $hosts{$_}{stderr_data},
+    if (defined $r->{result}{signal}) {
+      $h->{signal} = $r->{result}{signal};
     }
-  } keys %hosts;
-}
-
-sub fork_call { # {{{
-  my ($sub) = @_;
-
-  my $pid;
-  pipe my ($stdout_r, $stdout_w);
-  pipe my ($stderr_r, $stderr_w);
-
-  $pid = fork;
-  if ($pid < -1) {
-    die "fork() failed: $!";
+    if (defined $r->{result}{stdout}) {
+      $h->{data} = YAML::Load($r->{result}{stdout});
+    }
+    if (defined $r->{result}{stderr}) {
+      $h->{error} = $r->{result}{stderr};
+    }
   }
-
-  # XXX: child process
-  if ($pid == 0) {
-    open STDIN, "<", "/dev/null"; # just to be sure
-    open STDOUT, ">&", $stdout_w;
-    open STDERR, ">&", $stderr_w;
-    close $_ for $stdout_r, $stdout_w, $stderr_r, $stderr_w;
-
-    $sub->();
-    exit;
-  }
-
-  close $_ for $stdout_w, $stderr_w;
-  return {
-    stdout => $stdout_r,
-    stderr => $stderr_r,
-    pid => $pid,
-  };
+  return %results;
 } # }}}
-
-# }}}
 
 #-----------------------------------------------------------------------------
 # actual XML-RPC call
