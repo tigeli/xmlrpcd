@@ -168,6 +168,8 @@ while (1) {
 sub process_client {
   my ($client, $auth, $rpc_server, $rpc_hash, $public) = @_;
 
+  $0 = sprintf '[xmlrpcd (?@%s) ?.?]', $client->peerhost;
+
   # on SIGTERM client handler should finish processing current request and
   # THEN exit
   my $continue_processing = 1;
@@ -190,6 +192,9 @@ sub process_client {
 
   my $req_decoded = $rpc_server->decode($req->content);
 
+  $0 = sprintf '[xmlrpcd (?@%s) %s]',
+               $client->peerhost, $req_decoded->{method_name};
+
   my $auth_user;
   if (not $public->{$req_decoded->{method_name}}) {
     # XXX: authenticate if method was not marked as public
@@ -209,6 +214,9 @@ sub process_client {
 
     $logger->debug("Request authorized (user ", $auth_user, ")");
   }
+  $0 = sprintf '[xmlrpcd (%s@%s) %s]',
+               (defined $auth_user ? $auth_user : "<anonymous>"),
+               $client->peerhost, $req_decoded->{method_name};
 
   my $xml_resp = do {
     # XXX: there's no convenient way of communicating with method handlers,
