@@ -174,11 +174,21 @@ sub process_client {
   # THEN exit
   my $continue_processing = 1;
   $SIG{TERM} = $SIG{INT} = $SIG{HUP} = sub { $continue_processing = 0 };
+  $SIG{ALRM} = sub { die "timeout\n" };
 
   my $logger = Log::Log4perl::get_logger("client");
 
-  my $req = $client->get_request;
+  my $req;
+  eval {
+    alarm 60;
+    $req = $client->get_request;
+    alarm 0;
+  };
   if (not $req) {
+    if ($@ eq "timeout\n") {
+      $logger->info("Timeout while waiting for request from client ",
+                    $client->peerhost);
+    }
     return;
   }
 
@@ -186,7 +196,12 @@ sub process_client {
 
   if ($req->method ne 'POST') {
     $logger->info("HTTP request ", $req->method, ": denying");
-    $client->send_error(RC_FORBIDDEN);
+    eval {
+      alarm 60;
+      $client->send_error(RC_FORBIDDEN);
+      alarm 0;
+    };
+    # don't care about timeouts here
     return;
   }
 
@@ -208,7 +223,12 @@ sub process_client {
       my $resp = new HTTP::Response(401, 'Unauthorized');
       $resp->header('WWW-Authenticate' => 'Basic realm=""');
 
-      $client->send_response($resp);
+      eval {
+        alarm 60;
+        $client->send_response($resp);
+        alarm 0;
+      };
+      # don't care about timeouts here
       return;
     }
 
@@ -229,7 +249,14 @@ sub process_client {
 
   my $resp = new HTTP::Response(200, 'OK', undef, $xml_resp);
 
-  $client->send_response($resp);
+  eval {
+    alarm 60;
+    $client->send_response($resp);
+    alarm 0;
+  };
+  if ($@ && $@ eq "timeout\n") {
+    $logger->info("Timeout while sending response to ", $client->peerhost);
+  }
 }
 
 #-----------------------------------------------------------------------------
