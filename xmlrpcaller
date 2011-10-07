@@ -3,10 +3,6 @@
 use warnings;
 use strict;
 
-use constant {
-  MAX_SIMULTANEOUS_CALLS => 8,
-};
-
 # XXX: IO::Socket::SSL must be loaded before LWP::UserAgent, so the latter
 # uses that instead of Net::SSL. Load them at the very beginning, just to make
 # sure none of the other modules messes with this.
@@ -47,6 +43,8 @@ my %call_options = (
   password   => undef,    # HTTP password common to all hosts in this call
 );
 
+our $MAX_SIMULTANEOUS_CALLS = 8;
+
 # }}}
 #-----------------------------------------------------------------------------
 # parse command line options {{{
@@ -64,6 +62,7 @@ my @options = (
   [ "verify!"      => "whether verify hostname with cert or not (default: verify)" ],
   [ "print"        => "just print the returned element as string (fail if RPC returned many elements or non-string)" ],
   [ "params=s"     => "YAML file containing all the parameters to remote subroutine (replacement for specifying them in command line)" ],
+  [ "max-conns=i"  => "maximum number of concurrent XML-RPC connections (default: $MAX_SIMULTANEOUS_CALLS)" ],
 );
 my ($cmdlineopts, $usage) = describe_options(
   "Usage: %c %o package.method arg1 arg2 ...",
@@ -83,6 +82,10 @@ if ($cmdlineopts->{'print'}) {
 
 if ($cmdlineopts->{'params'}) {
   @ARGV = ($ARGV[0], YAML::LoadFile($cmdlineopts->{'params'}));
+}
+
+if ($cmdlineopts->{'max_conns'}) {
+  $MAX_SIMULTANEOUS_CALLS = ($cmdlineopts->{'max_conns'});
 }
 
 # }}}
@@ -343,7 +346,7 @@ sub multicall { # {{{
       );
     },
   );
-  my @results = $spool->natatime(MAX_SIMULTANEOUS_CALLS, @hosts);
+  my @results = $spool->natatime($MAX_SIMULTANEOUS_CALLS, @hosts);
 
   my %results;
   for my $r (@results) {
