@@ -57,6 +57,7 @@ my @options = (
   [ "url=s"        => "URL of server address (replaces host and port, but not user nor password)" ],
   [ "username=s"   => "username for HTTP authentication (you'll be prompted for password)" ],
   [ "port=i"       => "RPC server port (default: $defaults{port})" ],
+  [ "timeout=i"    => "timeout for negotiating TCP/SSL connection (default (from LWP::UserAgent): 180)" ],
   [ "ca-file=s"    => "path to CA file" ],
   [ "skip-ca!"     => "whether verify SSL certificate or not (default: no-skip)" ],
   [ "verify!"      => "whether verify hostname with cert or not (default: verify)" ],
@@ -228,6 +229,7 @@ sub add_cmdline_params { # {{{
     hostname  => 'host',
     port      => 'port',
     url       => 'url',
+    timeout   => 'timeout',
     ca_file   => 'ca_file',
     ca_ignore => 'skip_ca',
     verify_hostname => 'verify',
@@ -397,6 +399,10 @@ sub xmlrpcall { # {{{
     $server->{ua}->xmlrpcd_store_credentials(
       $params{username}, $params{password},
     );
+  }
+
+  if (defined $params{timeout}) {
+    $server->{ua}->timeout($params{timeout});
   }
 
   my @results = $server->call(@ARGV);
