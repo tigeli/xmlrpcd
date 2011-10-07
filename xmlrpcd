@@ -178,7 +178,7 @@ sub process_client {
 
   my $logger = Log::Log4perl::get_logger("client");
 
-  my $req;
+  my $req; # HTTP::Request
   eval {
     alarm 60;
     $req = $client->get_request;
@@ -244,6 +244,7 @@ sub process_client {
     # or client IP address) to prepare_environment() function
     local our $REQUEST_CALLER_ADDRESS  = $client->peerhost;
     local our $REQUEST_CALLER_USERNAME = $auth_user;
+    local our $REQUEST_CALLER_URI      = $req->uri;
     $rpc_server->serve($req->content, $rpc_hash);
   };
 
@@ -402,6 +403,7 @@ sub prepare_environment {
   # function
   our $REQUEST_CALLER_ADDRESS;
   our $REQUEST_CALLER_USERNAME;
+  our $REQUEST_CALLER_URI;
 
   for my $param (@{ $env->{params} }) {
     if ($param eq 'user') {
@@ -410,6 +412,9 @@ sub prepare_environment {
     } elsif ($param eq 'address') {
       # IP address of caller
       push @additional_args, $REQUEST_CALLER_ADDRESS;
+    } elsif ($param eq 'uri') {
+      # URI that was requested
+      push @additional_args, $REQUEST_CALLER_URI;
     } else {
       # unknown parameter; leave undef
       # TODO: warn
