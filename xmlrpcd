@@ -125,7 +125,7 @@ my $daemon = new HTTP::Daemon::SSL(
   SSL_key_file  => $options->{"ssl_key_file"},
   LocalPort => $options->{"listen_port"},
   LocalAddr => $options->{"listen_addr"},
-  Listen => 1,
+  Listen    => 64,
   ReuseAddr => 1,
 ) or $logger->logdie("Socket listening error: ", $!);
 
