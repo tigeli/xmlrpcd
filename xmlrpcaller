@@ -339,7 +339,21 @@ sub multicall { # {{{
     );
   }
 
+  my $progress;
+  if (POSIX::Termios->new->getattr(fileno STDERR)) {
+    $progress = sub {
+      my ($args, $tasks) = @_;
+
+      printf STDERR "\rAlready called hosts: %d/%d",
+             (@hosts - @$tasks), scalar @hosts;
+      if (@$tasks == 0) {
+        printf STDERR "\nAll hosts called. Waiting for replies.\n";
+      }
+    };
+  }
+
   my $spool = Worker::Spool->new(
+    progress => $progress,
     task => sub {
       my ($host) = @_;
       $0 = "[xmlrpcaller $host->{hostname}]"; # this looks nice in `ps -f'
@@ -495,6 +509,12 @@ sub new {
   my $self = {
     poll => new IO::Poll(),
     task => undef,
+    # called on replacing finished task with new one; parameters:
+    #   scalar that defines task parameters (mainly []) for just-spawned task
+    #     will be undef for the first call (it would take place just after
+    #     filling the queue)
+    #   reference to array that contains further task definitions
+    progress => undef,
     %args,
     filehq => {}, # empty hash; will contain Worker::Spool::Child as values
     pidq   => {}, # empty hash; will contain Worker::Spool::Child as values
@@ -538,6 +558,9 @@ sub natatime {
       push @results, $self->_spawn($arg);
     }
   }
+  if (defined $self->{progress}) {
+    $self->{progress}->(undef, \@todo);
+  }
 
   # until both children list and tasks to do are empty
   while ($self->_has_children || @todo) {
@@ -550,6 +573,9 @@ sub natatime {
         push @results, $self->_spawn(@$arg);
       } else {
         push @results, $self->_spawn($arg);
+      }
+      if (defined $self->{progress}) {
+        $self->{progress}->($arg, \@todo);
       }
     }
   }
