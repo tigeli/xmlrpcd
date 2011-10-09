@@ -1,5 +1,11 @@
 #!/usr/bin/perl
 
+=head1 NAME
+
+xmlrpcd - XML-RPC daemon
+
+=cut
+
 use warnings;
 use strict;
 
@@ -29,6 +35,16 @@ if (defined $opts_file) {
   $config_file = $opts_file;
 }
 
+=head1 SYNOPSIS
+
+xmlrpcd [--config xmlrpcd.conf] [-l4p logging.conf]
+        [--default-user username] [--default-group groupname]
+        [-p pidfile.pid] [-X]
+
+xmlrpcd --help
+
+=cut
+
 my $help = App::Daemon::find_option("--help");
 if ($help) {
   printf "Usage: %s [options]\n", (split m[/], $0)[-1];
@@ -49,6 +65,121 @@ if ($help) {
 
   exit 0;
 }
+
+=pod {{{
+
+=head1 DESCRIPTION
+
+xmlrpcd is a general dispatcher for XML-RPC requests. Its main purpose is to
+enable system administrator to define a procedure (possibly parametrized) and
+to make it executed from remote host.
+
+All this sounds like "write a script and call it using SSH", but there are
+several catches with that approach:
+
+=over
+
+=item user account and privileges
+
+You need to maintain one more usable account, what adds complexity to your
+servers network. Also, casual user account could have too little privileges to
+perform necessary tasks. Suddenly you find yourself maintaining bunch of
+L<sudoers(5)> entries, what makes your network even more complex.
+
+You could also use I<root> account to log into, but this is generally a bad
+practice and it's not as elegant as it could be.
+
+=item authentication
+
+Maintaining host keys (F<~/.ssh/known_hosts>) and user keys in SSH
+(F<~/.ssh/authorized_keys>) is difficult, as there is no hierarchy and each
+key needs to be added on each host. This is a problem for both host
+authentication on client side and for user authentication on server side.
+
+=item parametrization
+
+You can't easily limit and/or validate arguments passed to called script.
+
+=back
+
+All that is solved by xmlrpcd. You define Perl functions that can be called
+from remote. The functions take parameters that can be thoroughly checked.
+Functions are executed with UID/GID as given in their description, without
+requiring a login-enabled shell. Server verification is based on SSL/TLS, so
+you can use full-blown X.509 infrastructure for this, while client
+verification is HTTP-AUTH based, and for storing passwords you can use
+everything from simple L<htpasswd(1)> files to LDAP, RADIUS and Kerberos.
+
+=head1 CONFIGURATION
+
+xmlrpcd configuration is split into two parts: execution and logging.
+
+=head2 Logging Configuration
+
+Logging is entirely configured used L<Log::Log4perl(3)> syntax. See
+L<Log::Log4perl(3)> documentation for details.
+
+=head2 Execution Configuration
+
+This part of configuration is defined in F<xmlrpcd.conf>. This is YAML
+formatted file. Example:
+
+  ssl_cert_file: /etc/xmlrpcd/ssl/server.cert.pem
+  ssl_key_file:  /etc/xmlrpcd/ssl/server.key.pem
+  listen_port: 3033
+  #listen_addr: localhost
+
+  auth_method: Authen::Simple::Passwd
+  auth_params:
+    path: /var/lib/xmlrpcd/passwords.htpasswd
+
+  methods:
+    auth:
+      - "/var/lib/xmlrpcd/procedures/private/*.pm"
+      - "/var/lib/xmlrpcd/anothers/admin/*.pm"
+    public:
+      - "/var/lib/xmlrpcd/procedures/public/*.pm"
+
+The first part specifies SSL key and certificate, and address to listen on.
+
+Next uses module L<Authen::Simple::Passwd(3)> to authenticate clients. In this
+case, they will be authenticated against F<passwords.htpasswd> file. You can
+use any L<Authen::Simple(3)> compatible module. Parameters to C<new()> method
+can be specified in I<auth_params>.
+
+The last part says where are the RPC procedures (or "methods") (shell
+wildcards are accepted here), which of them need to be executed on
+authenticated RPC call, and which are free to execute by anyone that can
+connect to xmlrpcd.
+
+B<NOTE>: You can safely duplicate methods in both sections. For example,
+all F</var/lib/xmlrpcd/procedures/foo/*.pm> methods can be callable (requiring
+password from client), but additionally F<.../foo/public.pm> needs to be
+callable without HTTP authentication. Just put F<.../foo/*.pm> in "auth"
+section and F<.../foo/public.pm> in "public".
+
+=head2 RPC Method API
+
+TODO: remote procedure name
+
+=head3 C<entry_point()>
+
+=head3 C<$RPC_UID>, C<$RPC_GID>
+
+=head3 C<$RPC_PARAMS>
+
+=head3 Local and global variables in package
+
+=head1 SEE ALSO
+
+L<xmlrpcaller(1)>,
+L<Frontier::Client(3)>,
+L<Log::Log4perl(3)>,
+L<Authen::Simple(3)>
+
+=pod }}}
+
+=cut
 
 #-----------------------------------------------------------------------------
 # UID/GID stuff
