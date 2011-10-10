@@ -194,8 +194,12 @@ Each method is executed with I<xmlrpcd:xmlrpcd> UID/GID (or anything defined
 as I<--default-{user,group}> options). If you need to change that, define
 C<$RPC_UID> and C<$RPC_GID> global variables. Both can be numeric IDs or
 (preferably) names. C<$RPC_GID> is optional and will default to primary group
-for a given UID, but recommended is not to rely on this (it can cause problems
-when UID is shared by multiple accounts).
+for a given UID.
+
+C<$HOME> environment variable will be set appropriately when changing UID.
+
+B<NOTE>: Specifying user that has UID shared with some other account can cause
+problems. Try not to use this possibility.
 
 =head3 C<$RPC_PARAMS>
 
@@ -619,17 +623,21 @@ sub prepare_environment {
       $gid = (getpwuid $uid)[3];
     }
 
-    return ($uid, $gid);
+    my $home = (getpwuid $uid)[7];
+
+    return ($uid, $gid, $home);
   }
 
+  my $home;
   my ($uid, $gid) = ($DEFAULT_UID, $DEFAULT_GID);
   if (defined $env->{uid}) {
     ($uid, $gid) = ($env->{uid}, $env->{gid}); # even if GID is undef
   }
-  ($uid, $gid) = resolve_uid_gid($uid, $gid);
+  ($uid, $gid, $home) = resolve_uid_gid($uid, $gid);
 
   $( = $) = "$gid $gid";
   $< = $> = $uid;
+  $ENV{HOME} = $home;
 
   #---------------------------------------------------------------------------
   # append additional method arguments, as defined in RPC_PARAMS in method
