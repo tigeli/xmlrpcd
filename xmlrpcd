@@ -117,7 +117,15 @@ xmlrpcd configuration is split into two parts: execution and logging.
 =head2 Logging Configuration
 
 Logging is entirely configured used L<Log::Log4perl(3)> syntax. See
-L<Log::Log4perl(3)> documentation for details.
+L<Log::Log4perl(3)> documentation for details. Example syslog configuration:
+
+  log4perl.category = INFO, Syslog
+
+  log4perl.appender.Syslog = Log::Dispatch::Syslog
+  log4perl.appender.Syslog.ident = xmlrpcd
+  log4perl.appender.Syslog.logopt = pid
+  log4perl.appender.Syslog.facility = daemon
+  log4perl.appender.Syslog.layout = Log::Log4perl::Layout::SimpleLayout
 
 =head2 Execution Configuration
 
@@ -160,15 +168,114 @@ section and F<.../foo/public.pm> in "public".
 
 =head2 RPC Method API
 
-TODO: remote procedure name
+Each method is a separate F<*.pm> file. As a module, the file needs to end
+with C<1;> statement (see C<require()> Perl function in L<perlfunc(1)>).
+
+Method name derives from file name and consists of two parts: package name and
+actual name. Example of such name is I<maths.sumAndDifference>, where I<maths>
+is package name and I<sumAndDifference> is actual method name. Actual name
+comes from name of the F<*.pm> file, and package name comes from name of
+directory containing the file. So, I<maths.sumAndDifference> needs to be saved
+in file like F</some/where/maths/sumAndDifference.pm>.
 
 =head3 C<entry_point()>
 
+For I<maths.sumAndDifference> xmlrpcd calls C<entry_point()> function defined
+in appropriate module (as described earlier). The function takes exactly the
+same parameters as caller sent them, possibly prepended with some informations
+about connection when C<$RPC_PARAMS> is defined.
+
+B<NOTE>: do not change package in the F<*.pm> file. xmlrpcd relies on having
+C<entry_point()> in place.
+
 =head3 C<$RPC_UID>, C<$RPC_GID>
+
+Each method is executed with I<xmlrpcd:xmlrpcd> UID/GID (or anything defined
+as I<--default-{user,group}> options). If you need to change that, define
+C<$RPC_UID> and C<$RPC_GID> global variables. Both can be numeric IDs or
+(preferably) names. C<$RPC_GID> is optional and will default to primary group
+for a given UID, but recommended is not to rely on this (it can cause problems
+when UID is shared by multiple accounts).
 
 =head3 C<$RPC_PARAMS>
 
+You can define a set of additional parameters passed to your function, like
+authenticated user name, IP address of caller or requested URI. Define
+a global variable C<$RPC_PARAMS> containing array reference with desired
+parameters. It can contain one or more of the following values:
+
+=over
+
+=item "user"
+
+Additional argument will contain authenticated user name or C<undef> if the
+request wasn't authenticated (when the RPC method is a public one).
+
+=item "address"
+
+Argument will contain IP address of caller, in string form. It could be
+classic IPv4 ("127.0.0.1"), IPv6 ("2001:500:88:200::10") or IPv4 in IPv6 form
+("::ffff:127.0.0.1"), if you have IPv6-enabled server.
+
+=item "uri"
+
+This argument will contain path+query from request, without protocol, hostname
+or port. Let's say the URL "https://localhost:3033/RPC/XML?var=value" was
+called. The argument would contain "/RPC/XML?var=value" part of URL.
+
+=back
+
+Any unrecognized item in this table will result in C<undef> being passed as
+appropriate argument, to support future extensions.
+
 =head3 Local and global variables in package
+
+Each RPC call on the server side will be executed in a separate process, but
+methods loading will be performed only once when xmlrpcd starts.
+
+Given that, the variables defined outside of functions will have exactly the
+same contents for each call.
+
+=head3 Example RPC method
+
+Following example of RPC method explains how to use all described above
+options.
+
+  # .../maths/sumAndDifference.pm
+  our $RPC_UID = "nobody";
+  our $RPC_GID = "nogroup";
+  our $RPC_PARAMS = ["address", "user"];
+
+  sub entry_point {
+    my ($ip, $remote_user, $a, $b) = @_;
+
+    my $user;
+    if (defined $remote_user) {
+      $user = $remote_user;
+    } else {
+      $user = "<anonymous>";
+    }
+
+    return {
+      greeting   => "Hello $user. Your address is $ip.",
+      sum        => $a + $b,
+      difference => $a - $b,
+    };
+  }
+  1; # XXX: very important to keep this line
+  # EOF
+
+And call (L<xmlrpcaller(1)>):
+
+  $ xmlrpcaller --skip-ca --host localhost maths.sumAndDifference 2 3
+  > ---
+  > difference: -1
+  > greeting: Hello <anonymous>. Your address is ::ffff:127.0.0.1.
+  > sum: 5
+
+Function from the example will be executed as I<nobody:nogroup>. Of course it
+doesn't matter in this case what UID/GID would it be, but you could easily
+imagine a RPC method that changes some file in the system or runs 
 
 =head1 SEE ALSO
 
