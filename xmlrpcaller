@@ -1,5 +1,11 @@
 #!/usr/bin/perl
 
+=head1 NAME
+
+xmlrpcaller - XML-RPC client
+
+=cut
+
 use warnings;
 use strict;
 
@@ -49,6 +55,85 @@ our $MAX_SIMULTANEOUS_CALLS = 8;
 #-----------------------------------------------------------------------------
 # parse command line options {{{
 
+=head1 SYNOPSIS
+
+xmlrpcaller --host hostname [--port 3033] \
+  [options] pkg.procedure [procedure_args ...]
+
+xmlrpcaller --url https://hostname:3033/some/additional/path \
+  [options] pkg.procedure [procedure_args ...]
+
+xmlrpcaller [--config xmlrpcaller.conf] --section sectionname \
+  [options] pkg.procedure [procedure_args ...]
+
+xmlrpcaller --help
+
+=head2 Procedure arguments
+
+Arguments can be specified in two ways. First is by supplying them simply in
+command line. This is easy, but only works for strings and numbers. For
+passing more complicated structures you can provide a YAML file (option
+I<--params>=F<params.yaml>) with arguments (for passing multiple arguments,
+store multiple YAML documents in the file). See L</EXAMPLES> section.
+
+=head2 Options
+
+=over
+
+=item I<--ca-file>=F<CA.cert.pem>
+
+With this option you provide X.509 ceritificate authority certificate that
+will be used to verify SSL certificate of called RPC server.
+
+=item I<--skip-ca>
+
+With this option you can omit SSL certificate verification, but it is
+recommended that you use I<--ca-file> option instead.
+I<Please don't use this option and do server verification!>
+
+=item I<--verify> (default), I<--no-verify>
+
+With this option you can skip checking whether called host name matches
+I<commonName> attribute of host's SSL certificate. It's recommended not to use
+I<--no-verify> option, but sometimes it could be necessary.
+
+=item I<--timeout>=180
+
+TCP connection timeout, in seconds. This is how long xmlrpcaller will wait for
+connection to be either established or rejected. Especially useful for calling
+multiple hosts at a time. Default depends on L<LWP::UserAgent(3)>.
+
+=item I<--max-conns>=8
+
+Maximum number of simultaneous connections. This is for calling multiple hosts
+at a time.
+
+=item I<--username>=I<user>
+
+User name for HTTP authentication. Overwrites anything specified in section.
+
+If this option was specified, xmlrpcaller will ask for password.
+
+If this option was specified when calling multiple hosts at a time, it
+overwrites anything stored in hosts' configuration (that is, will be used for
+all hosts). Password prompt will only be displayed once.
+
+B<NOTE>: There is and will be no I<--password> command line option. It is
+unsafe to pass password in command line, because it will be a) stored in shell
+history and b) visible in L<ps(1)> output.
+
+=item I<--print>
+
+When you're calling a single server and expect that the result will be
+a string or a number, you can omit YAML formatting and grab the raw result.
+This is what this option is for.
+
+Does nothing when calling multiple hosts at a time.
+
+=back
+
+=cut
+
 my @options = (
   [ "help"         => "this message" ],
   [ "config=s"     => "path to configuration file" ],
@@ -66,7 +151,7 @@ my @options = (
   [ "max-conns=i"  => "maximum number of concurrent XML-RPC connections (default: $MAX_SIMULTANEOUS_CALLS)" ],
 );
 my ($cmdlineopts, $usage) = describe_options(
-  "Usage: %c %o package.method arg1 arg2 ...",
+  "Usage: %c %o package.procedure arg1 arg2 ...",
   @options,
 );
 
@@ -794,5 +879,34 @@ sub result {
 }
 
 # }}}
+#-----------------------------------------------------------------------------
+# documentation
+
+=head1 CALLING METHODS
+
+=head2 Calling Host
+
+=head2 Calling URL
+
+=head2 Calling Config Section
+
+=head2 Calling Config Section -- Many Hosts At A Time
+
+=head1 EXAMPLES
+
+=head3 simple RPC call without arguments
+
+=head3 simple RPC call with arguments and authentication
+
+=head3 simple RPC call without arguments, clear out any YAML formatting
+
+=head3 URL RPC call with YAML-loaded parameters
+
+=head3 config section RPC call
+
+=head3 multiple servers call
+
+=cut
+
 #-----------------------------------------------------------------------------
 # vim:ft=perl:foldmethod=marker:nowrap
