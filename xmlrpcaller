@@ -882,29 +882,233 @@ sub result {
 #-----------------------------------------------------------------------------
 # documentation
 
-=head1 CALLING METHODS
+=head1 WAYS OF CALLING L<xmlrpcaller>
 
-=head2 Calling Host
+L<xmlrpcaller> may be ran using one of several ways.
 
-=head2 Calling URL
+=head2 Providing A Host
 
-=head2 Calling Config Section
+In this mode you just provide a host name with I<--host> option, and possibly
+a port (I<--port> option), which XML-RPC daemon listens on. Default is to use
+3033 port. Requested URL will be I<< https://<hostname>:<port>/ >>.
 
-=head2 Calling Config Section -- Many Hosts At A Time
+For HTTP authentication, you may specify I<--user> option.
+
+=head2 Providing An URL
+
+This mode is similar to the previous one, except that you provide URL to
+connect to (I<--url> option). This way you can use, for example,
+a webaplication XML-RPC API, like Trac with XML-RPC plugin.
+
+There is no other way of specifying "local path" in requested URL than
+specifying URL instead of host name.
+
+B<NOTE>: Any login/password from specified URL will be ignored. Use I<--user>
+option for credentials.
+
+=head2 Providing A Config Section
+
+If you have a host that is called quite often, you can save its parameters
+(either host/port pair or URL) in config file (YAML format). Config file is
+specified with I<--config> option; if none was specified,
+F<~/.xmlrpcaller.conf> and F</etc/xmlrpcd/xmlrpcaller.conf> are tried. Section
+from F<xmlrpcaller.conf> to be used is specified with I<--section> option.
+
+You can also save login with password to be used for HTTP authentication.
+
+Each option in config can be overridden by appropriate command line option.
+
+Example configuration:
+
+  # ~/.xmlrpcaller.conf
+  xmlrpcaller:
+    # this is an example entry and uses Debian's CA certificate list
+    example.net:
+      hostname: example.net
+      username: admin
+      password: admin++
+      ca_file: /etc/ssl/certs/ca-certificates.crt
+    # this is an example how to specify URL with path different than "/"
+    url-example:
+      url: https://example.net/xmlrpc
+      ca_file: /etc/ssl/certs/ca-certificates.crt
+
+Example calls:
+
+  $ xmlrpcaller --section example.net math.add 1 2
+  $ xmlrpcaller --section url-example some.method --params params.yaml
+
+For all possible options, see F</etc/xmlrpcd/xmlrpcaller.conf.example>.
+
+=head2 Providing A Config Section -- Many Hosts At Time
+
+There are some cases when you need to call the same method with the same
+parameters, but on multiple hosts. The method could be, for example, some
+administrative task. What you need, is a list section in config file. List
+elements are the same as for single machine call. Example:
+
+  # ~/.xmlrpcaller.conf
+  xmlrpcaller:
+    list-example:
+      - hostname: alpha.example.net
+        ca_file: /etc/ssl/certs/ca-certificates.crt
+      - hostname: beta.example.net
+        port: 3035
+        ca_file: /etc/ssl/certs/ca-certificates.crt
+      - url: https://gamma.example.net:3033/some/url
+        ca_file: /etc/ssl/certs/ca-certificates.crt
+      - hostname: delta.example.net
+        ca_file: /etc/ssl/certs/ca-certificates.crt
+      - hostname: epsilon.example.net
+        ca_file: /etc/ssl/certs/ca-certificates.crt
+
+Call example:
+
+  $ xmlrpcaller --section list-example admin.sometask
+
+This will call all the hosts from "list-example" section, calling 8 hosts at
+the same time (you can change this value with I<--max-conns> option, but
+remember: for every call different process will be spawned, so it's quite
+costly to call more than 20-30 hosts).
+
+Output example:
+
+  ---
+  alpha.example.net:
+    data: "data returned by admin.sometask\n"
+    exit_code: 0
+    hostname: alpha.example.net
+  beta.example.net:
+    error: "500 Can't connect to beta.example.net:3033 (connect: No route to host)\n"
+    exit_code: 113
+    hostname: beta.example.net
+  delta.example.net:
+    error: "401 Unauthorized\n"
+    exit_code: 2
+    hostname: delta.example.net
+  epsilon.example.net:
+    data: "data returned by admin.sometask\n"
+    exit_code: 0
+    hostname: epsilon.example.net
+  gamma.example.net:
+    data: ~
+    signal: 10
+    hostname: gamma.example.net
+
+The output is YAML-serialized hash, with host names as keys. Values contain
+either "data" (data returned by called procedure, not necessarily a string) or
+"error" field and either "exit_code" (0 for successful run) or "signal" field,
+when spawned child process was killed by some signal.
+
+B<NOTE>: order of data can be different than specified in config file.
+Actually, you may expect it to be lexicographical order (but do not depend on
+this).
 
 =head1 EXAMPLES
 
 =head3 simple RPC call without arguments
 
-=head3 simple RPC call with arguments and authentication
+Call C<public.fqdn_hostname()> method on alpha.example.net:
+
+  $ xmlrpcaller --host alpha.example.net public.fqdn_hostname
+  > --- alpha.example.net
 
 =head3 simple RPC call without arguments, clear out any YAML formatting
 
+Call C<public.fqdn_hostname()> method on alpha.example.net (it returns
+a string, so no formatting is needed):
+
+  $ xmlrpcaller --print --host alpha.example.net public.fqdn_hostname
+  > alpha.example.net
+
+=head3 simple RPC call with arguments and authentication
+
+Call C<mysql.get_tables("phpbb_forum")> method on forum.example.net:
+
+  $ xmlrpcaller --host forum.example.net --user admin mysql.get_tables phpbb_forum
+  > ---
+  > - phpbb_acl_groups
+  > - phpbb_acl_options
+  > - phpbb_acl_roles
+  > ...
+
 =head3 URL RPC call with YAML-loaded parameters
+
+More sophisticated call, when C<some.procedure(...)> expects as its arguments
+a hash, an array and scalar. Called URL is a CGI script
+https://cgi.example.net/cgi-bin/xmlrpc
+
+F<params.yaml> contents:
+
+  key1: value 1
+  key2: value 2
+  key3:
+    subkey: subvalue
+  ---
+  - element 1
+  - element 2
+  --- |-
+  This is just a string.
+
+Actual call:
+
+  $ xmlrpcaller --url https://cgi.example.net/cgi-bin/xmlrpc some.procedure --params params.yaml
 
 =head3 config section RPC call
 
+Call C<public.fqdn_hostname()> method on alpha.example.net, with server
+parameters saved in config file.
+
+F<~/alpha.conf> contents:
+
+  xmlrpcaller:
+    server:
+      hostname: alpha.example.net
+      ca_file: /etc/ssl/certs/ca-certificates.crt
+      username: admin
+      password: admin's password
+
+Actual call:
+
+  $ xmlrpcaller --config ~/alpha.conf --section server public.fqdn_hostname
+
 =head3 multiple servers call
+
+Call C<public.fqdn_hostname()> method on alpha, beta and gamma servers:
+
+F<~/.xmlrpcaller.conf> contents:
+
+  xmlrpcaller:
+    my-hosts:
+      - hostname: alpha.example.net
+        ca_file: /etc/ssl/certs/ca-certificates.crt
+      - hostname: beta.example.net
+        ca_file: /etc/ssl/certs/ca-certificates.crt
+      - hostname: gamma.example.net
+        ca_file: /etc/ssl/certs/ca-certificates.crt
+
+Actual call:
+
+  $ xmlrpcaller --section my-hosts public.fqdn_hostname
+  > alpha.example.net:
+  >   data: alpha.example.net
+  >   exit_code: 0
+  >   hostname: alpha.example.net
+  > beta.example.net:
+  >   error: "500 Can't connect to beta.example.net:3033 (connect: No route to host)\n"
+  >   exit_code: 113
+  >   hostname: beta.example.net
+  > gamma.example.net:
+  >   data: gamma.example.net
+  >   exit_code: 0
+  >   hostname: gamma.example.net
+
+=head1 SEE ALSO
+
+L<xmlrpcd(8)>,
+L<Frontier::Client(3)>,
+L<XMLRPC::Lite(3)>,
+L<YAML(3)>
 
 =cut
 
