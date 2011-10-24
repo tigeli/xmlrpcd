@@ -2,3 +2,4 @@
 /usr/bin/xmlrpcaller
 /usr/sbin/xmlrpcd
 /usr/share/doc/xmlrpcd/*
+/usr/share/man/*

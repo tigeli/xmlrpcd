@@ -66,6 +66,8 @@ mkdir -p $RPM_BUILD_ROOT%{_localstatedir}/log/xmlrpcd
 %{_bindir}/xmlrpcaller
 %{_sbindir}/xmlrpcd
 %{_defaultdocdir}/xmlrpcd-%{_version}
+%{_mandir}/man1/xmlrpcaller.1.gz
+%{_mandir}/man8/xmlrpcd.8.gz
 %config(noreplace) %{_sysconfdir}/init.d/xmlrpcd
 %config %{_sysconfdir}/xmlrpcd/*.example
 %attr(-,   %{xmlrpcd_user}, %{xmlrpcd_group}) %dir %{_sysconfdir}/xmlrpcd

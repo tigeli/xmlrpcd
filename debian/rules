@@ -18,8 +18,9 @@ binary: install
 	dh_fixperms
 	dh_link
 	dh_strip
-	dh_installdeb
 	dh_perl
+	dh_compress
+	dh_installdeb
 	dh_makeshlibs
 	dh_shlibdeps
 	dh_gencontrol

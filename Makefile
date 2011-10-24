@@ -1,21 +1,30 @@
 DESTDIR =
 PREFIX = /usr/local
 DOCDIR = $(PREFIX)/share/doc/xmlrpcd
+MANDIR = $(PREFIX)/share/man
 BINDIR = $(PREFIX)/bin
 SBINDIR = $(PREFIX)/sbin
 EXAMPLES = $(DOCDIR)/examples
 SYSCONFDIR = $(PREFIX)/etc
 STATEDIR = $(PREFIX)/var
 
-.PHONY: all install clean
+.PHONY: all man install clean
 
-all: # empty
-clean: # empty
+all: man
+
+man:
+	mkdir -p man
+	perldoc -onroff -wsection:1 xmlrpcaller > man/xmlrpcaller.1
+	perldoc -onroff -wsection:8 xmlrpcd     > man/xmlrpcd.8
+
+clean:
+	rm -rf man
 
 install:
 	mkdir -p $(DESTDIR)$(PREFIX)
 	mkdir -p $(DESTDIR)$(DOCDIR)
 	mkdir -p $(DESTDIR)$(EXAMPLES)
+	mkdir -p $(DESTDIR)$(MANDIR)
 	mkdir -p $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
 	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(SBINDIR)
@@ -26,6 +35,8 @@ install:
 	cp -R          examples/procedures     $(DESTDIR)$(EXAMPLES)
 	install -m 644 examples/xmlrpcaller.py $(DESTDIR)$(EXAMPLES)
 	install -m 644 examples/xml-rpc.cgi    $(DESTDIR)$(EXAMPLES)
+	install -m 644 -D man/xmlrpcaller.1    $(DESTDIR)$(MANDIR)/man1/xmlrpcaller.1
+	install -m 644 -D man/xmlrpcd.8        $(DESTDIR)$(MANDIR)/man8/xmlrpcd.8
 	install -m 644 examples/logging.conf.example     $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
 	install -m 644 examples/xmlrpcaller.conf.example $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
 	install -m 644 examples/xmlrpcd.conf.example     $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
