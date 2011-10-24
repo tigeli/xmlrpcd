@@ -1,3 +1,20 @@
+xmlrpcd (1.0-1) stable; urgency=low
+
+  * xmlrpcaller:
+    * Added --max-conns option, to change limit for simultaneous calls.
+    * Added configurable TCP timeout for calls.
+    * Added progress bar for simultaneous call.
+    * Enabled plain HTTP call.
+  * xmlrpcd:
+    * Added changing process name of daemon's children.
+    * Added timeouts for reading request and sending response.
+    * Added passing path part of requested URL to methods.
+    * Changed TCP connection backlog to 64.
+    * Added defining $HOME variable for procedure execution.
+  * Added documentation (man pages) for both xmlrpcd and xmlrpcaller.
+
+ -- Stanislaw Klekot <dozzie@jarowit.net>  Mon, 24 Oct 2011 17:44:52 +0200
+
 xmlrpcd (0.7-1) stable; urgency=low
 
   * xmlrpcaller:
