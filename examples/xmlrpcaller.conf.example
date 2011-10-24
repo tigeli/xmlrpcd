@@ -36,14 +36,16 @@ xmlrpcaller:
   # output (YAML format):
   # us000251:
   #   data: ... # $data{us000251}{data} contains data returned by RPC call
-  #   error: ~
   #   exit_code: 0  # always 0 if success
   #   hostname: us000251
   # us000252:
-  #   data: ~
   #   error: "500 Can't connect to 192.168.2.9:3033 (connect: No route to host)\n"
-  #   exit_code: 28928  # WEXITCODE(28928) == 113
+  #   exit_code: 113
   #   hostname: us000252
+  # us000253:
+  #   data: ~
+  #   signal: 14
+  #   hostname: us000253
   # ...
 
   multiple_hosts:
