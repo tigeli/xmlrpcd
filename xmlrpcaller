@@ -35,6 +35,7 @@ my %defaults = (
   ca_file   => undef,
   ca_ignore => 'false',
   verify_hostname => 'true',
+  allow_no_ssl    => 'false',
 );
 my @callees = ();
 
@@ -97,6 +98,11 @@ With this option you can skip checking whether called host name matches
 I<commonName> attribute of host's SSL certificate. It's recommended not to use
 I<--no-verify> option, but sometimes it could be necessary.
 
+=item I<--allow-no-ssl>
+
+This option enables xmlrpcaller to call RPC procedure over plain HTTP, without
+any encryption. You need to use I<--url> for this.
+
 =item I<--timeout>=180
 
 TCP connection timeout, in seconds. This is how long xmlrpcaller will wait for
@@ -146,6 +152,7 @@ my @options = (
   [ "ca-file=s"    => "path to CA file" ],
   [ "skip-ca!"     => "whether verify SSL certificate or not (default: no-skip)" ],
   [ "verify!"      => "whether verify hostname with cert or not (default: verify)" ],
+  [ "allow-no-ssl!" => "for --url option, allow call over plain HTTP" ],
   [ "print"        => "just print the returned element as string (fail if RPC returned many elements or non-string)" ],
   [ "params=s"     => "YAML file containing all the parameters to remote subroutine (replacement for specifying them in command line)" ],
   [ "max-conns=i"  => "maximum number of concurrent XML-RPC connections (default: $MAX_SIMULTANEOUS_CALLS)" ],
@@ -318,6 +325,7 @@ sub add_cmdline_params { # {{{
     ca_file   => 'ca_file',
     ca_ignore => 'skip_ca',
     verify_hostname => 'verify',
+    allow_no_ssl    => 'allow_no_ssl',
   );
 
   for my $k (keys %translate) {
@@ -327,21 +335,8 @@ sub add_cmdline_params { # {{{
   }
   $params->{path} = ""; # XXX: this can only be set by --url option
 
-  # overwrite host/port if URL was provided
-  if ($params->{url}) {
-    my $url = new URI($params->{url});
-    if ($url->scheme ne 'https') {
-      die sprintf "Uknown scheme: %s for URL %s\n",
-                  $url->scheme, $params->{url};
-    }
-    $params->{hostname} = $url->host;
-    $params->{port} = $url->port;
-    $params->{path} = $url->path_query;
-    $params->{path} =~ s{^/}{};
-  }
-
   # normalize boolean options
-  for my $bool_opt (qw/ca_ignore verify_hostname/) {
+  for my $bool_opt (qw/ca_ignore verify_hostname allow_no_ssl/) {
     if ($params->{$bool_opt} =~ /^false$/i or not $params->{$bool_opt}) {
       $params->{$bool_opt} = undef;
     } else {
@@ -353,13 +348,34 @@ sub add_cmdline_params { # {{{
     delete $params->{ca_file};
   }
 
+  $params->{scheme} = 'https';
+
+  # overwrite host/port if URL was provided
+  if ($params->{url}) {
+    my $url = new URI($params->{url});
+    if ($url->scheme ne 'https' && $url->scheme ne 'http') {
+      die sprintf "Uknown scheme: %s for URL %s\n",
+                  $url->scheme, $params->{url};
+    }
+    if ($url->scheme eq 'http' && !$params->{allow_no_ssl}) {
+      die sprintf "Plain HTTP is not allowed for URL %s\n",
+                  $params->{url};
+    }
+    $params->{hostname} = $url->host;
+    $params->{port} = $url->port;
+    $params->{path} = $url->path_query;
+    $params->{path} =~ s{^/}{};
+    $params->{scheme} = $url->scheme;
+  }
+
   if (not defined $params->{hostname}) {
     die "No hostname provided\n";
   }
   if (not defined $params->{port}) {
     die "No port specified for $params->{hostname}\n";
   }
-  if (!$params->{ca_ignore} && !defined $params->{ca_file} ) {
+  if (!$params->{ca_ignore} && !defined $params->{ca_file} &&
+      !$params->{allow_no_ssl}) {
     die "No CA specified for $params->{hostname}\n";
   }
 } # }}}
@@ -487,8 +503,9 @@ sub xmlrpcall { # {{{
   set_ssl_defaults($params{ca_file}, $params{verify_hostname});
 
   my $server = new Frontier::Client(
-    url => sprintf "https://%s:%d/%s",
-                   $params{hostname}, $params{port}, $params{path}
+    url => sprintf "%s://%s:%d/%s",
+                   $params{scheme}, $params{hostname}, $params{port},
+                   $params{path}
   );
 
   if (defined $params{username} && defined $params{password}) {
