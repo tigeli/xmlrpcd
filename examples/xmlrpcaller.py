@@ -12,7 +12,7 @@ def xml_rpcall(server, port, creds, method, *args):
 
   headers = { "Content-Type": "text/xml" }
   if creds != None:
-    headers["Authorization"] = "Basic %s" % (base64.b64encode('%s:%s' % creds),)
+    headers["Authorization"] = "Basic %s" % (base64.encodestring('%s:%s' % creds).strip(),)
   body = xmlrpc.dumps(args, methodname = method)
 
   server = http.HTTPSConnection(server, port)
