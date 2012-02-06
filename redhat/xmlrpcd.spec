@@ -71,7 +71,6 @@ mkdir -p $RPM_BUILD_ROOT%{_localstatedir}/log/xmlrpcd
 %config(noreplace) %{_sysconfdir}/init.d/xmlrpcd
 %config %{_sysconfdir}/xmlrpcd/*.example
 %attr(-,   %{xmlrpcd_user}, %{xmlrpcd_group}) %dir %{_sysconfdir}/xmlrpcd
-%attr(755, %{xmlrpcd_user}, %{xmlrpcd_group}) %dir %{_localstatedir}/run/xmlrpcd
 %attr(755, %{xmlrpcd_user}, %{xmlrpcd_group}) %dir %{_localstatedir}/lib/xmlrpcd
 %attr(755, %{xmlrpcd_user}, %{xmlrpcd_group}) %dir %{_localstatedir}/log/xmlrpcd
 

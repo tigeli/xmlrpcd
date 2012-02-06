@@ -32,7 +32,7 @@ start()
 
   $EXE_SCRIPT \
     --config $XMLRPCD_CONF -l4p $XMLRPCD_LOGGING_CONF \
-    -p /var/run/$NAME/$NAME.pid \
+    -p /var/run/$NAME.pid \
     ${XMLRPCD_USER:+--default-user $XMLRPCD_USER} \
     ${XMLRPCD_GROUP:+--default-group $XMLRPCD_GROUP} \
     start
@@ -40,7 +40,7 @@ start()
 
 stop()
 {
-  start-stop-daemon --stop --oknodo --pidfile /var/run/$NAME/$NAME.pid -v
+  start-stop-daemon --stop --oknodo --pidfile /var/run/$NAME.pid -v
 }
 
 status()

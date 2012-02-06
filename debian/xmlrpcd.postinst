@@ -13,7 +13,6 @@ if [ -z "`getent passwd xmlrpcd`" ]; then
   echo "done." >&2
 fi
 
-chown xmlrpcd:xmlrpcd /var/run/xmlrpcd
 chown xmlrpcd:xmlrpcd /var/lib/xmlrpcd
 chown xmlrpcd:xmlrpcd /var/log/xmlrpcd
 
