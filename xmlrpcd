@@ -320,6 +320,8 @@ daemonize();
 # while this still leaves race condition, it's way better than simply keep
 # 0666 perms
 chmod 0644, $App::Daemon::pidfile;
+# XXX: App::Daemon doesn't do chdir() on its own O_o
+chdir "/";
 
 my $logger = Log::Log4perl::get_logger("initialization");
 
