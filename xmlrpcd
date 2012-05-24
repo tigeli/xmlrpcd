@@ -494,7 +494,7 @@ sub process_client {
 
   my $resp = new HTTP::Response(
     HTTP::Status::RC_OK, undef,
-    ["Content-Type", "text/xml"],
+    ["Content-Type" => "text/xml", "Connection" => "close"],
     $xml_resp
   );
 
