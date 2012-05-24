@@ -492,7 +492,11 @@ sub process_client {
     $rpc_server->serve($req->content, $rpc_hash);
   };
 
-  my $resp = new HTTP::Response(200, 'OK', undef, $xml_resp);
+  my $resp = new HTTP::Response(
+    HTTP::Status::RC_OK, undef,
+    ["Content-Type", "text/xml"],
+    $xml_resp
+  );
 
   eval {
     alarm 60;
