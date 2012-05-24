@@ -34,6 +34,7 @@ install:
 	install -m 755 xmlrpcd      $(DESTDIR)$(SBINDIR)/xmlrpcd
 	cp -R          examples/procedures      $(DESTDIR)$(EXAMPLES)
 	install -m 644 examples/xmlrpcaller.py* $(DESTDIR)$(EXAMPLES)
+	install -m 644 examples/xmlrpcaller.rb  $(DESTDIR)$(EXAMPLES)
 	install -m 644 examples/xml-rpc.cgi     $(DESTDIR)$(EXAMPLES)
 	install -m 644 -D man/xmlrpcaller.1     $(DESTDIR)$(MANDIR)/man1/xmlrpcaller.1
 	install -m 644 -D man/xmlrpcd.8         $(DESTDIR)$(MANDIR)/man8/xmlrpcd.8
