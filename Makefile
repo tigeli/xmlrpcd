@@ -32,11 +32,11 @@ install:
 	mkdir -p $(DESTDIR)$(STATEDIR)/lib/xmlrpcd
 	install -m 755 xmlrpcaller  $(DESTDIR)$(BINDIR)/xmlrpcaller
 	install -m 755 xmlrpcd      $(DESTDIR)$(SBINDIR)/xmlrpcd
-	cp -R          examples/procedures     $(DESTDIR)$(EXAMPLES)
-	install -m 644 examples/xmlrpcaller.py $(DESTDIR)$(EXAMPLES)
-	install -m 644 examples/xml-rpc.cgi    $(DESTDIR)$(EXAMPLES)
-	install -m 644 -D man/xmlrpcaller.1    $(DESTDIR)$(MANDIR)/man1/xmlrpcaller.1
-	install -m 644 -D man/xmlrpcd.8        $(DESTDIR)$(MANDIR)/man8/xmlrpcd.8
+	cp -R          examples/procedures      $(DESTDIR)$(EXAMPLES)
+	install -m 644 examples/xmlrpcaller.py* $(DESTDIR)$(EXAMPLES)
+	install -m 644 examples/xml-rpc.cgi     $(DESTDIR)$(EXAMPLES)
+	install -m 644 -D man/xmlrpcaller.1     $(DESTDIR)$(MANDIR)/man1/xmlrpcaller.1
+	install -m 644 -D man/xmlrpcd.8         $(DESTDIR)$(MANDIR)/man8/xmlrpcd.8
 	install -m 644 examples/logging.conf.example     $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
 	install -m 644 examples/xmlrpcaller.conf.example $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
 	install -m 644 examples/xmlrpcd.conf.example     $(DESTDIR)$(SYSCONFDIR)/xmlrpcd
