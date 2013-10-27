@@ -901,7 +901,7 @@ sub result {
 
 =head1 WAYS OF CALLING L<xmlrpcaller>
 
-L<xmlrpcaller> may be ran using one of several ways.
+L<xmlrpcaller> may be run using one of several ways.
 
 =head2 Providing A Host
 
