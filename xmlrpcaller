@@ -500,13 +500,15 @@ sub multicall { # {{{
 sub xmlrpcall { # {{{
   my (%params) = @_;
 
-  set_ssl_defaults($params{ca_file}, $params{verify_hostname});
+  my $ssl_opts = set_ssl_defaults($params{ca_file}, $params{verify_hostname});
 
   my $server = new Frontier::Client(
     url => sprintf "%s://%s:%d/%s",
                    $params{scheme}, $params{hostname}, $params{port},
                    $params{path}
   );
+
+  $server->{ua}{ssl_opts} = $ssl_opts;
 
   if (defined $params{username} && defined $params{password}) {
     # XXX: this is kinda hack on Frontier::Client, but there's no way to pass
@@ -534,7 +536,7 @@ sub xmlrpcall { # {{{
 sub set_ssl_defaults {
   my ($ca_file, $verify_hostname) = @_;
 
-  IO::Socket::SSL::set_ctx_defaults(
+  my %ssl_opts = (
     verify_mode => (
       defined $ca_file ?
         Net::SSLeay->VERIFY_PEER() :
@@ -543,6 +545,10 @@ sub set_ssl_defaults {
     ca_file => $ca_file,
     verifycn_scheme => ($verify_hostname ? 'http' : undef),
   );
+
+  IO::Socket::SSL::set_ctx_defaults(%ssl_opts);
+
+  return \%ssl_opts;
 }
 
 # }}}
