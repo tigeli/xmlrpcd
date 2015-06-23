@@ -17,6 +17,8 @@ Requires: perl(Class::Accessor), perl(Class::Data::Inheritable)
 Requires: perl(Log::Dispatch), perl(Sys::Syslog) >= 0.16
 # xmlrpcaller uses set_ctx_defaults function, which was added in 1.14 version
 Requires: perl(IO::Socket::SSL) >= 1.14
+# on RHEL7 HTTPs support was extracted to a separate package
+Requires: perl(LWP::Protocol::https)
 BuildArch: noarch
 Packager: %{_packager}
 Prefix: %{_prefix}
