@@ -1,3 +1,10 @@
+xmlrpcd (1.0.1-1) stable; urgency=low
+
+  * xmlrpcaller fixed for libwww-perl 6.x (Debian 7+, Red Hat 7)
+  * xmlrpcd fixed for IO::Socket::SSL 1.94 (Red Hat 7)
+
+ -- Stanislaw Klekot <dozzie@jarowit.net>  Thu, 25 Jun 2015 21:34:40 +0200
+
 xmlrpcd (1.0-1) stable; urgency=low
 
   * xmlrpcaller:
