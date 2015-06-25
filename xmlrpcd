@@ -396,11 +396,14 @@ while (1) {
 
   if ($workers->spawn == 0) {
     # when daemon gets restarted while some client was processed, (new) daemon
-    # will be able to listen() on the socket
-    close $daemon;
+    # needs to be able to listen() on the socket; unfortunately, because of
+    # an unexpected interaction between IO::Socket::SSL and
+    # HTTP::Daemon(::SSL), I can't close this socket in child process right
+    # away; let's leave that to process_client()
+    #close $daemon;
     # in child process, `` should return status in $? variable normally
     $SIG{CHLD} = "DEFAULT";
-    process_client($client, $auth, $rpc_server, $rpc_hash, $public);
+    process_client($daemon, $client, $auth, $rpc_server, $rpc_hash, $public);
     exit 0;
   }
 }
@@ -410,14 +413,10 @@ while (1) {
 #-----------------------------------------------------------------------------
 
 sub process_client {
-  my ($client, $auth, $rpc_server, $rpc_hash, $public) = @_;
+  my ($daemon, $client, $auth, $rpc_server, $rpc_hash, $public) = @_;
 
   $0 = sprintf '[xmlrpcd (?@%s) ?.?]', $client->peerhost;
 
-  # on SIGTERM client handler should finish processing current request and
-  # THEN exit
-  my $continue_processing = 1;
-  $SIG{TERM} = $SIG{INT} = $SIG{HUP} = sub { $continue_processing = 0 };
   $SIG{ALRM} = sub { die "timeout\n" };
 
   my $logger = Log::Log4perl::get_logger("client");
@@ -428,6 +427,12 @@ sub process_client {
     $req = $client->get_request;
     alarm 0;
   };
+  # XXX: caller left $daemon opened, so $client->get_request() works with
+  # IO::Socket::SSL 1.94; now we need to close it, so it doesn't stay in the
+  # way when xmlrpcd is being restarted
+  close $daemon;
+
+  # and back to usual business
   if (not $req) {
     if ($@ eq "timeout\n") {
       $logger->info("Timeout while waiting for request from client ",
